@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-int rocco_web_main(int argc, char **argv);
+int rocco_web_main(void);
 
 // stack_ops.S defines these without a header.
 void _emscripten_stack_restore(void *sp);
@@ -26,8 +26,7 @@ __attribute__((used)) static void *const rocco_web_loader_exports[] = {
 	(void *)fflush,
 };
 
-// Odin reserves the link name main, so emscripten's start code enters here,
-// with Module.arguments (rocco.js) after the program's name.
-int main(int argc, char **argv) {
-	return rocco_web_main(argc, argv);
+// Odin reserves the link name main, so emscripten's start code enters here.
+int main(void) {
+	return rocco_web_main();
 }

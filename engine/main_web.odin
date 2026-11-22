@@ -2,6 +2,7 @@
 package engine
 
 import "core:mem"
+import "core:strings"
 import "system"
 
 import "base:runtime"
@@ -22,29 +23,34 @@ foreign libc {
 // emscripten sapp.run starts the requestAnimationFrame loop and returns, so
 // this returns while the game runs.
 @(export, link_name = "rocco_web_main")
-web_main :: proc "c" (argc: i32, argv: [^]cstring) -> i32 {
+web_main :: proc "c" () -> i32 {
 	context = runtime.default_context()
 	#force_no_inline runtime._startup_runtime()
 	// Odin's own wasm allocator grows memory beside emscripten's sbrk, so
 	// every allocation goes through libc.
 	context.allocator = {libc_allocator_proc, nil}
-	system.args = web_args(argc, argv)
+	system.args = web_args()
 	run(ROC_GAME)
 	return 0
 }
 
-// rocco.js passes the page's URL query as the words after the program's
-// name, which reach the game as Config.args. The program's own name is left
-// empty, so the assets stay in the default folder.
-web_args :: proc(argc: i32, argv: [^]cstring) -> []string {
-	if argc <= 1 {
-		return nil
+WEB_QUERY_LIMIT :: 4096
+
+// The page's URL query is its command line: one word a parameter
+// (rocco_web_query), which reach the game as Config.args. The program's own
+// name is left empty, so the assets stay in the default folder.
+web_args :: proc() -> []string {
+	query := make([]u8, WEB_QUERY_LIMIT)
+	rocco_web_query(raw_data(query), WEB_QUERY_LIMIT)
+	text := string(cstring(raw_data(query)))
+	words := make([dynamic]string)
+	append(&words, "")
+	for word in strings.split_lines_iterator(&text) {
+		if word != "" {
+			append(&words, word)
+		}
 	}
-	words := make([]string, argc)
-	for i in 1 ..< argc {
-		words[i] = string(argv[i])
-	}
-	return words
+	return words[:]
 }
 
 // libc's realloc does not keep the alignment, so a resize allocates and copies.
