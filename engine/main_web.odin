@@ -2,6 +2,7 @@
 package engine
 
 import "core:mem"
+import "system"
 
 import "base:runtime"
 
@@ -21,14 +22,29 @@ foreign libc {
 // emscripten sapp.run starts the requestAnimationFrame loop and returns, so
 // this returns while the game runs.
 @(export, link_name = "rocco_web_main")
-web_main :: proc "c" () -> i32 {
+web_main :: proc "c" (argc: i32, argv: [^]cstring) -> i32 {
 	context = runtime.default_context()
 	#force_no_inline runtime._startup_runtime()
 	// Odin's own wasm allocator grows memory beside emscripten's sbrk, so
 	// every allocation goes through libc.
 	context.allocator = {libc_allocator_proc, nil}
+	system.args = web_args(argc, argv)
 	run(ROC_GAME)
 	return 0
+}
+
+// rocco.js passes the page's URL query as the words after the program's
+// name, which reach the game as Config.args. The program's own name is left
+// empty, so the assets stay in the default folder.
+web_args :: proc(argc: i32, argv: [^]cstring) -> []string {
+	if argc <= 1 {
+		return nil
+	}
+	words := make([]string, argc)
+	for i in 1 ..< argc {
+		words[i] = string(argv[i])
+	}
+	return words
 }
 
 // libc's realloc does not keep the alignment, so a resize allocates and copies.

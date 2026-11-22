@@ -68,6 +68,7 @@
 		// rocco.js owns Module, so a Module that the Page defines is replaced.
 		window.Module = {
 			canvas: canvas,
+			arguments: queryWords(),
 			print: function (text) { console.log(text); },
 			printErr: function (text) { console.error(text); },
 			// A debug build's asserts abort with no message, so the stack names the call.
@@ -83,6 +84,17 @@
 			},
 		};
 		load(["index.data.js", "index.js"]);
+	}
+
+	// The page's URL query reaches the game as Config.args, one word a
+	// parameter in the URL's order: "?msaa=1&grass=0" gives ["msaa=1",
+	// "grass=0"], and a parameter with no value gives its name alone.
+	function queryWords() {
+		var words = [];
+		new URLSearchParams(location.search).forEach(function (value, name) {
+			words.push(value === "" ? name : name + "=" + value);
+		});
+		return words;
 	}
 
 	window.rocco_start = function () {
