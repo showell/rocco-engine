@@ -15,6 +15,7 @@ test_launch_default_matches_the_host_constants :: proc(t: ^testing.T) {
 	testing.expect_value(t, launch.shadow_map, 2048)
 	testing.expect_value(t, launch.shadow_cascades, 1)
 	testing.expect_value(t, launch.capacity, Capacity{meshes = 64, skies = 16, images = 256, draws = 16384, groups = 1024, ui_quads = 16384, sounds = 64, voices = 64})
+	testing.expect_value(t, launch.programs, Programs{coverage = true, particles = true, ui = true})
 }
 
 @(test)

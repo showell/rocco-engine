@@ -8,8 +8,8 @@ Launch := [].{
 	## 4x MSAA and vsync. A step rate of 120 Hz, a 2048 shadow map with one
 	## cascade. Map size, cascade count and MSAA require a restart.
 	## 64 meshes, 16 skies, 256 Images, 16384 Draws, 1024 Groups, 16384
-	## UI quads, 64 Sounds and 64 voices. To keep all of it, write
-	## `launch = |_config| Launch.default`.
+	## UI quads, 64 Sounds and 64 voices. Every optional GPU program. To keep
+	## all of it, write `launch = |_config| Launch.default`.
 	default : Vocabulary.Launch
 	default = {
 		window: { width: 960, height: 540, title: "rocco", fullscreen: False, high_dpi: True, samples: X4, vsync: True },
@@ -17,7 +17,8 @@ Launch := [].{
 		shadow_map: 2048,
 		shadow_cascades: 1,
 		capacity: { meshes: 64, skies: 16, images: 256, draws: 16384, groups: 1024, ui_quads: 16384, sounds: 64, voices: 64 },
+		programs: { coverage: True, particles: True, ui: True },
 	}
 }
 
-expect Launch.default == { window: { width: 960, height: 540, title: "rocco", fullscreen: False, high_dpi: True, samples: X4, vsync: True }, step_hz: 120, shadow_map: 2048, shadow_cascades: 1, capacity: { meshes: 64, skies: 16, images: 256, draws: 16384, groups: 1024, ui_quads: 16384, sounds: 64, voices: 64 } }
+expect Launch.default == { window: { width: 960, height: 540, title: "rocco", fullscreen: False, high_dpi: True, samples: X4, vsync: True }, step_hz: 120, shadow_map: 2048, shadow_cascades: 1, capacity: { meshes: 64, skies: 16, images: 256, draws: 16384, groups: 1024, ui_quads: 16384, sounds: 64, voices: 64 }, programs: { coverage: True, particles: True, ui: True } }

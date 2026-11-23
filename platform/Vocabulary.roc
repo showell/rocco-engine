@@ -45,12 +45,15 @@ Vocabulary := [].{
 	##   view up to Scene.shadow.distance (150 by default), so near shadows are sharp and far ones
 	##   are coarse. Each cascade is one more `shadow_map` by `shadow_map` map.
 	## - `capacity`: the table sizes. No Scene field replaces them.
+	## - `programs`: the renderer's optional GPU programs that the game uses.
+	##   No Scene field replaces them.
 	Launch : {
 		window : Window,
 		step_hz : U32,
 		shadow_map : U32,
 		shadow_cascades : U32,
 		capacity : Capacity,
+		programs : Programs,
 	}
 
 	## The window that a Launch opens. As in Launch, a field with no note about
@@ -111,6 +114,21 @@ Vocabulary := [].{
 		ui_quads : U32,
 		sounds : U32,
 		voices : U32,
+	}
+
+	## The renderer's optional GPU programs. `Launch.default` makes them all. A
+	## game that never draws a group can leave it out: the host then makes none
+	## of its shaders and pipelines, so a browser compiles fewer before the first
+	## Frame. A Frame that needs a group left out ends the run.
+	##
+	## - `coverage`: the scene depth and Selection coverage passes, which a Post
+	##   shader that reads the scene's depth or the Selection needs.
+	## - `particles`: the particles that Emitters spawn.
+	## - `ui`: the UI quads that a Scene's Elements lay out.
+	Programs : {
+		coverage : Bool,
+		particles : Bool,
+		ui : Bool,
 	}
 
 	## The name-to-id list that `loaded` gets for one Pack. It holds every name

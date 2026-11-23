@@ -336,9 +336,10 @@ Roc_Launch :: struct {
 	shadow_cascades: u32,
 	shadow_map: u32,
 	step_hz: u32,
+	programs: Roc_Launch_Programs,
 }
 
-#assert(size_of(Roc_Launch) == (88 when ROC_POINTER_64 else 68))
+#assert(size_of(Roc_Launch) == (88 when ROC_POINTER_64 else 72))
 #assert(align_of(Roc_Launch) == (8 when ROC_POINTER_64 else 4))
 #assert(offset_of(Roc_Launch, window) == 0)
 #assert(size_of(type_of(Roc_Launch{}.window)) == (40 when ROC_POINTER_64 else 24))
@@ -350,6 +351,8 @@ Roc_Launch :: struct {
 #assert(size_of(type_of(Roc_Launch{}.shadow_map)) == 4)
 #assert(offset_of(Roc_Launch, step_hz) == (80 when ROC_POINTER_64 else 64))
 #assert(size_of(type_of(Roc_Launch{}.step_hz)) == 4)
+#assert(offset_of(Roc_Launch, programs) == (84 when ROC_POINTER_64 else 68))
+#assert(size_of(type_of(Roc_Launch{}.programs)) == 3)
 
 Roc_Launch_Window :: struct {
 	title: Roc_Str,
@@ -417,6 +420,21 @@ Roc_Launch_Capacity :: struct {
 #assert(size_of(type_of(Roc_Launch_Capacity{}.ui_quads)) == 4)
 #assert(offset_of(Roc_Launch_Capacity, voices) == 28)
 #assert(size_of(type_of(Roc_Launch_Capacity{}.voices)) == 4)
+
+Roc_Launch_Programs :: struct {
+	coverage: bool,
+	particles: bool,
+	ui: bool,
+}
+
+#assert(size_of(Roc_Launch_Programs) == 3)
+#assert(align_of(Roc_Launch_Programs) == 1)
+#assert(offset_of(Roc_Launch_Programs, coverage) == 0)
+#assert(size_of(type_of(Roc_Launch_Programs{}.coverage)) == 1)
+#assert(offset_of(Roc_Launch_Programs, particles) == 1)
+#assert(size_of(type_of(Roc_Launch_Programs{}.particles)) == 1)
+#assert(offset_of(Roc_Launch_Programs, ui) == 2)
+#assert(size_of(type_of(Roc_Launch_Programs{}.ui)) == 1)
 
 Roc_Loaded_Arg2 :: struct {
 	clips: Roc_List(Roc_Loaded_Arg2_Clips),

@@ -41,6 +41,7 @@ renderer_upload_particles :: proc(ctx: rawptr, instances: []Particle_Instance, v
 }
 
 renderer_submit_particles :: proc(ctx: rawptr, batch: Particle_Batch) {
+	render_group_needed(.Particles)
 	r := (^Renderer)(ctx)
 	g := &r.particles
 	image, draw := particle_image_resolve(&r.images, batch.image)

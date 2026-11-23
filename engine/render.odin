@@ -137,7 +137,8 @@ skinned_draw_capacity :: proc(draws: int) -> int {
 // sample count and the formats, or sokol rejects the pipelines. The sample
 // count comes from the Launch.
 renderer_init :: proc(r: ^Renderer, launch: Launch) {
-	g_render_omitted = render_groups_from_args(system.args)
+	g_render_declined = render_groups_declined(launch.programs)
+	g_render_omitted = g_render_declined + render_groups_from_args(system.args)
 	cluster_sizes := [3]uint{MAX_POINT_LIGHTS * size_of(Packed_Light), CLUSTER_COUNT * size_of(Cluster_Range), CLUSTER_INDEX_LIMIT * size_of(u32)}
 	for size, i in cluster_sizes {
 		r.cluster_buffers[i] = sg.make_buffer({size = size, usage = {storage_buffer = true, write_transient = true}})
@@ -619,6 +620,7 @@ renderer_submits :: proc(r: ^Renderer) -> Frame_Render_Submits {
 
 renderer_depth :: proc(ctx: rawptr, mesh: ^Mesh, part: ^Mesh_Part, pipeline: Mesh_Pipeline, vs_params: Vs_Params, fs_params: Fs_Params, skin: ^Skin_Params) {
  r := (^Renderer)(ctx)
+ render_group_needed(.Coverage)
  rigid := r.instanced_depth_pips[pipeline] if r.instance_count > 0 else r.depth_pips[pipeline]
  renderer_apply_skin(r, rigid, r.skinned_depth_pips[pipeline], skin)
  tex := mesh_part_textures(part, r.white, r.flat_normal).base

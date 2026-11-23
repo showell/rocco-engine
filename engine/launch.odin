@@ -36,6 +36,7 @@ launch_default :: proc() -> Launch {
 		shadow_map = 2048,
 		shadow_cascades = 1,
 		capacity = {meshes = 64, skies = 16, images = 256, draws = 16384, groups = 1024, ui_quads = 16384, sounds = 64, voices = 64},
+		programs = {coverage = true, particles = true, ui = true},
 	}
 }
 

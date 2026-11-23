@@ -104,6 +104,7 @@ ui_gpu_init :: proc(g: ^Ui_Gpu, quad_capacity: int, sample_count: i32, allocator
 // the frame, so this runs at most once a frame. A run with no Image quad
 // keeps the bindings of the run before it.
 renderer_ui :: proc(ctx: rawptr, quads: []Ui_Quad, screen: [2]f32) {
+	render_group_needed(.Ui)
 	r := (^Renderer)(ctx)
 	g := &r.ui
 	assert(len(quads) * 4 <= len(g.scratch))

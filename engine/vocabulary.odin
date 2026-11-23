@@ -14,6 +14,7 @@ Launch :: Roc_Launch
 Window :: Roc_Launch_Window
 Msaa :: Roc_Launch_Window_Samples
 Capacity :: Roc_Launch_Capacity
+Programs :: Roc_Launch_Programs
 Init_Result :: Roc_Init
 Input :: Roc_Step_Arg1
 Gamepad :: Roc_Step_Arg1_Gamepads

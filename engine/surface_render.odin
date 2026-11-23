@@ -8,6 +8,7 @@ surface_cull :: proc(material: Material, pass: Surface_Pass, pipeline: Mesh_Pipe
 }
 
 renderer_surface :: proc(ctx: rawptr, pass: Surface_Pass, mesh: ^Mesh, part: ^Mesh_Part, pipeline: Mesh_Pipeline, vs_params: Vs_Params, fs_params: Fs_Params, skin: ^Skin_Params) {
+	if pass == .Selection { render_group_needed(.Coverage) }
 	r := (^Renderer)(ctx)
 	surface := part.surface
 	layout := Shader_Layout.Skinned if skin != nil else .Instanced if r.instance_count > 0 else .Rigid
