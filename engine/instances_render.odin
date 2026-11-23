@@ -9,7 +9,7 @@ renderer_instances_init :: proc(r: ^Renderer, colour: sg.Pipeline_Desc) {
 	mask := sg.make_shader(instanced_mask_shader_desc(sg.query_backend()))
 	for pipeline in SCENE_ORDER_PIPELINES { r.instanced_pips[pipeline] = sg.make_pipeline(mesh_pipeline_desc(colour, {mask = mask}, pipeline)) }
 	shadow := colour
-	shadow.shader = sg.make_shader(instanced_shadow_shader_desc(sg.query_backend()))
+	shadow.shader = render_shader({.Shadows}, instanced_shadow_shader_desc(sg.query_backend()))
 	shadow.sample_count = 1
 	shadow.colors[0].pixel_format = .NONE
 	shadow.depth = {pixel_format = .DEPTH, compare = .GREATER_EQUAL, write_enabled = true, bias = SHADOW_DEPTH_BIAS, bias_slope_scale = SHADOW_SLOPE_BIAS}
@@ -17,20 +17,20 @@ renderer_instances_init :: proc(r: ^Renderer, colour: sg.Pipeline_Desc) {
 	shadow.layout.attrs = {}
 	shadow.layout.attrs[0] = full.attrs[0]
 	for i in 0 ..< 4 { shadow.layout.attrs[1+i] = full.attrs[5+i] }
-	r.instanced_shadow_pips[.Opaque] = sg.make_pipeline(shadow)
-	shadow.shader = sg.make_shader(instanced_shadow_mask_shader_desc(sg.query_backend()))
+	r.instanced_shadow_pips[.Opaque] = render_pipeline({.Shadows}, shadow)
+	shadow.shader = render_shader({.Shadows}, instanced_shadow_mask_shader_desc(sg.query_backend()))
 	shadow.layout.attrs = {}
 	shadow.layout.attrs[0], shadow.layout.attrs[1], shadow.layout.attrs[2] = full.attrs[0], full.attrs[1], full.attrs[3]
 	for i in 0 ..< 4 { shadow.layout.attrs[3+i] = full.attrs[5+i] }
 	shadow.layout.attrs[7] = full.attrs[12]
-	for pipeline in SCENE_ORDER_PIPELINES { if pipeline != .Opaque { r.instanced_shadow_pips[pipeline] = sg.make_pipeline(shadow_mask_pipeline_desc(shadow, pipeline)) } }
+	for pipeline in SCENE_ORDER_PIPELINES { if pipeline != .Opaque { r.instanced_shadow_pips[pipeline] = render_pipeline({.Shadows}, shadow_mask_pipeline_desc(shadow, pipeline)) } }
 	coverage := shadow
-	coverage.shader = sg.make_shader(instanced_coverage_shader_desc(sg.query_backend()))
+	coverage.shader = render_shader({.Coverage}, instanced_coverage_shader_desc(sg.query_backend()))
 	coverage.depth = {pixel_format = .DEPTH, compare = .GREATER_EQUAL, write_enabled = true}
 	coverage.color_count = 2
 	coverage.colors[0].pixel_format = .R8
 	coverage.colors[1].pixel_format = .R32F
-	for pipeline in SCENE_ORDER_PIPELINES { r.instanced_depth_pips[pipeline] = sg.make_pipeline(shadow_mask_pipeline_desc(coverage, pipeline)) }
+	for pipeline in SCENE_ORDER_PIPELINES { r.instanced_depth_pips[pipeline] = render_pipeline({.Coverage}, shadow_mask_pipeline_desc(coverage, pipeline)) }
 }
 
 instance_layout :: proc() -> (layout: sg.Vertex_Layout_State) {

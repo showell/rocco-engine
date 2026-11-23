@@ -3,6 +3,7 @@ package engine
 import sapp "../sokol-odin/sokol/app"
 import sg "../sokol-odin/sokol/gfx"
 import sglue "../sokol-odin/sokol/glue"
+import "system"
 
 // Metal on macOS starts each uniform block on a 256 byte boundary.
 UNIFORM_ALIGN :: 256
@@ -136,6 +137,7 @@ skinned_draw_capacity :: proc(draws: int) -> int {
 // sample count and the formats, or sokol rejects the pipelines. The sample
 // count comes from the Launch.
 renderer_init :: proc(r: ^Renderer, launch: Launch) {
+	g_render_omitted = render_groups_from_args(system.args)
 	cluster_sizes := [3]uint{MAX_POINT_LIGHTS * size_of(Packed_Light), CLUSTER_COUNT * size_of(Cluster_Range), CLUSTER_INDEX_LIMIT * size_of(u32)}
 	for size, i in cluster_sizes {
 		r.cluster_buffers[i] = sg.make_buffer({size = size, usage = {storage_buffer = true, write_transient = true}})
@@ -191,7 +193,7 @@ renderer_init :: proc(r: ^Renderer, launch: Launch) {
 	r.pips = mesh_pipelines(desc, {mask = sg.make_shader(mask_shader_desc(sg.query_backend())), blend = sg.make_shader(blend_shader_desc(sg.query_backend()))})
 
 	skinned := desc
-	skinned.shader = sg.make_shader(skinned_shader_desc(sg.query_backend()))
+	skinned.shader = render_shader({.Skinned}, skinned_shader_desc(sg.query_backend()))
 	skinned.layout = {
 		buffers = {0 = {stride = size_of(Skinned_Vertex)}},
 		attrs = {
@@ -205,7 +207,7 @@ renderer_init :: proc(r: ^Renderer, launch: Launch) {
 		},
 	}
 	skinned.label = "skinned"
-	r.skinned_pips = mesh_pipelines(skinned, {mask = sg.make_shader(skinned_mask_shader_desc(sg.query_backend())), blend = sg.make_shader(skinned_blend_shader_desc(sg.query_backend()))})
+	r.skinned_pips = mesh_pipelines(skinned, {mask = render_shader({.Skinned}, skinned_mask_shader_desc(sg.query_backend())), blend = render_shader({.Skinned}, skinned_blend_shader_desc(sg.query_backend()))}, {.Skinned})
 
 	// The sky draws the cube primitive from inside, so it reads only the
 	// position and culls nothing. It writes no depth and passes at the
@@ -224,7 +226,7 @@ renderer_init :: proc(r: ^Renderer, launch: Launch) {
 	)
 
 	shadow := sg.Pipeline_Desc {
-		shader = sg.make_shader(shadow_shader_desc(sg.query_backend())),
+		shader = render_shader({.Shadows}, shadow_shader_desc(sg.query_backend())),
 		sample_count = 1,
 		// A NONE colour format is how sokol marks a depth-only pipeline.
 		colors = {0 = {pixel_format = .NONE}},
@@ -241,10 +243,10 @@ renderer_init :: proc(r: ^Renderer, launch: Launch) {
 		layout = {buffers = {0 = {stride = size_of(Vertex)}}, attrs = {ATTR_shadow_pos = {format = .FLOAT3, offset = i32(offset_of(Vertex, pos))}}},
 		label = "shadow",
 	}
-	r.shadow_pips[.Opaque] = sg.make_pipeline(shadow)
+	r.shadow_pips[.Opaque] = render_pipeline({.Shadows}, shadow)
 
 	skinned_shadow := shadow
-	skinned_shadow.shader = sg.make_shader(skinned_shadow_shader_desc(sg.query_backend()))
+	skinned_shadow.shader = render_shader({.Shadows, .Skinned}, skinned_shadow_shader_desc(sg.query_backend()))
 	skinned_shadow.layout = {
 		buffers = {0 = {stride = size_of(Skinned_Vertex)}},
 		attrs = {
@@ -254,10 +256,10 @@ renderer_init :: proc(r: ^Renderer, launch: Launch) {
 		},
 	}
 	skinned_shadow.label = "skinned-shadow"
-	r.skinned_shadow_pips[.Opaque] = sg.make_pipeline(skinned_shadow)
+	r.skinned_shadow_pips[.Opaque] = render_pipeline({.Shadows, .Skinned}, skinned_shadow)
 
 	mask_shadow := shadow
-	mask_shadow.shader = sg.make_shader(shadow_mask_shader_desc(sg.query_backend()))
+	mask_shadow.shader = render_shader({.Shadows}, shadow_mask_shader_desc(sg.query_backend()))
 	mask_shadow.layout = {
 		buffers = {0 = {stride = size_of(Vertex)}},
 		attrs = {
@@ -268,7 +270,7 @@ renderer_init :: proc(r: ^Renderer, launch: Launch) {
 	}
 	mask_shadow.label = "shadow-mask"
 	skinned_mask_shadow := mask_shadow
-	skinned_mask_shadow.shader = sg.make_shader(skinned_shadow_mask_shader_desc(sg.query_backend()))
+	skinned_mask_shadow.shader = render_shader({.Shadows, .Skinned}, skinned_shadow_mask_shader_desc(sg.query_backend()))
 	skinned_mask_shadow.layout = {
 		buffers = {0 = {stride = size_of(Skinned_Vertex)}},
 		attrs = {
@@ -281,22 +283,22 @@ renderer_init :: proc(r: ^Renderer, launch: Launch) {
 	}
 	skinned_mask_shadow.label = "skinned-shadow-mask"
  coverage := mask_shadow
- coverage.shader = sg.make_shader(coverage_shader_desc(sg.query_backend()))
+ coverage.shader = render_shader({.Coverage}, coverage_shader_desc(sg.query_backend()))
  coverage.depth = {pixel_format = .DEPTH, compare = .GREATER_EQUAL, write_enabled = true}
  coverage.color_count = 2
  coverage.colors[0].pixel_format = .R8
  coverage.colors[1].pixel_format = .R32F
  skinned_coverage := coverage
- skinned_coverage.shader = sg.make_shader(skinned_coverage_shader_desc(sg.query_backend()))
+ skinned_coverage.shader = render_shader({.Coverage, .Skinned}, skinned_coverage_shader_desc(sg.query_backend()))
  skinned_coverage.layout = skinned_mask_shadow.layout
  for pipeline in SCENE_ORDER_PIPELINES {
-  r.depth_pips[pipeline] = sg.make_pipeline(shadow_mask_pipeline_desc(coverage, pipeline))
-  r.skinned_depth_pips[pipeline] = sg.make_pipeline(shadow_mask_pipeline_desc(skinned_coverage, pipeline))
+  r.depth_pips[pipeline] = render_pipeline({.Coverage}, shadow_mask_pipeline_desc(coverage, pipeline))
+  r.skinned_depth_pips[pipeline] = render_pipeline({.Coverage, .Skinned}, shadow_mask_pipeline_desc(skinned_coverage, pipeline))
  }
 	for pipeline in SCENE_ORDER_PIPELINES {
 		if pipeline == .Opaque { continue }
-		r.shadow_pips[pipeline] = sg.make_pipeline(shadow_mask_pipeline_desc(mask_shadow, pipeline))
-		r.skinned_shadow_pips[pipeline] = sg.make_pipeline(shadow_mask_pipeline_desc(skinned_mask_shadow, pipeline))
+		r.shadow_pips[pipeline] = render_pipeline({.Shadows}, shadow_mask_pipeline_desc(mask_shadow, pipeline))
+		r.skinned_shadow_pips[pipeline] = render_pipeline({.Shadows, .Skinned}, shadow_mask_pipeline_desc(skinned_mask_shadow, pipeline))
 	}
 }
 
@@ -306,9 +308,9 @@ shadow_mask_pipeline_desc :: proc(desc: sg.Pipeline_Desc, pipeline: Mesh_Pipelin
 	return d
 }
 
-mesh_pipelines :: proc(opaque: sg.Pipeline_Desc, shaders: Mesh_Shaders) -> (pips: [Mesh_Pipeline]sg.Pipeline) {
+mesh_pipelines :: proc(opaque: sg.Pipeline_Desc, shaders: Mesh_Shaders, groups: Render_Groups = {}) -> (pips: [Mesh_Pipeline]sg.Pipeline) {
 	for pipeline in Mesh_Pipeline {
-		pips[pipeline] = sg.make_pipeline(mesh_pipeline_desc(opaque, shaders, pipeline))
+		pips[pipeline] = render_pipeline(groups, mesh_pipeline_desc(opaque, shaders, pipeline))
 	}
 	return pips
 }

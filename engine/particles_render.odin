@@ -11,11 +11,11 @@ Particle_Gpu :: struct {
 
 particle_gpu_init :: proc(g: ^Particle_Gpu, samples: i32) {
 	g.instances = sg.make_buffer({size = PARTICLE_LIMIT * size_of(Particle_Instance), usage = {vertex_buffer = true, write_transient = true}, label = "particle-instances"})
-	shader := sg.make_shader(particle_shader_desc(sg.query_backend()))
+	shader := render_shader({.Particles}, particle_shader_desc(sg.query_backend()))
 	for blend in Particle_Blend {
 		desc := particle_pipeline_desc(samples, blend)
 		desc.shader = shader
-		g.pip[blend] = sg.make_pipeline(desc)
+		g.pip[blend] = render_pipeline({.Particles}, desc)
 	}
 }
 

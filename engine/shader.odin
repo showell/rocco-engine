@@ -210,7 +210,7 @@ shader_upload :: proc(t: ^Shader_Table, s: ^Shader) -> bool {
 		for program in shader_array(obj["programs"]) { p := shader_object(program); if reason := shader_device_check(p); reason != "" { system.eprintfln("Shader %q %v: %v", s.name, shader_text(p["name"]), reason); return false } }
 		for program in shader_array(obj["programs"]) {
 			p := shader_object(program); index := shader_program_index(shader_text(p["name"]))
-			handle := shader_make_program(&s.package_data, p); s.programs[index] = {p, handle}
+			handle := shader_make_program(&s.package_data, p, s.name); s.programs[index] = {p, handle}
 			if sg.query_shader_state(handle) != .VALID { return false }
 		}
 	}
@@ -234,6 +234,7 @@ shader_pipeline :: proc(t: ^Shader_Table, s: ^Shader, key: Shader_Pipeline_Key) 
 	key := key
 	if key.pass != .Colour && key.alpha == .Blend { key.alpha = .Opaque }
 	if pip, has := s.pipelines[key]; has { return pip, true }
+	if key.pass == .Shadow && .Shadows in g_render_omitted { return {}, false }
 	if !s.ready || len(s.pipelines) >= SHADER_PIPELINE_LIMIT { return {}, false }
 	index := int(key.layout) * 3 + int(key.pass); program := s.programs[index]
 	if program.handle.id == 0 { return {}, false }
@@ -255,6 +256,7 @@ shader_pipeline :: proc(t: ^Shader_Table, s: ^Shader, key: Shader_Pipeline_Key) 
 	// Sokol rejects attributes absent from the compiled vertex stage.
 	active: [16]bool; for a in shader_array(program.reflection["attrs"]) { active[shader_int(shader_object(a)["slot"])] = true }
 	for &a, i in d.layout.attrs { if !active[i] { a = {} } }
+	label: [64]u8; d.label = shader_label(label[:], s.name)
 	pip := sg.make_pipeline(d)
 	if sg.query_pipeline_state(pip) != .VALID { sg.destroy_pipeline(pip); return {}, false }
 	s.pipelines[key] = pip; return pip, true
@@ -265,10 +267,21 @@ shader_constant_texels :: proc(value: json.Value) -> (pixels: [24]f32) {
  return
 }
 
-shader_make_program :: proc(pkg: ^Shader_Package, reflection: json.Object) -> sg.Shader {
+shader_make_program :: proc(pkg: ^Shader_Package, reflection: json.Object, name: string) -> sg.Shader {
  scratch: arenas.Arena
  defer arenas.destroy(&scratch)
  context.temp_allocator = arenas.allocator(&scratch)
  // Sokol consumes source and reflected names during make_shader.
- return sg.make_shader(shader_program_desc(pkg, reflection))
+ d := shader_program_desc(pkg, reflection)
+ label: [64]u8; d.label = shader_label(label[:], name)
+ return sg.make_shader(d)
+}
+
+// The shader asset's name as a GPU object's label, so a browser's tools and a
+// page that counts what the engine makes can tell a game's shaders apart. It
+// is cut to fit the buffer, which keeps a zero at its end.
+shader_label :: proc(buffer: []u8, name: string) -> cstring {
+ n := copy(buffer[:len(buffer) - 1], name)
+ buffer[n] = 0
+ return cstring(raw_data(buffer))
 }

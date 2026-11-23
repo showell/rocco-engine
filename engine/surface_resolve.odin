@@ -238,7 +238,7 @@ surface_values_resolve :: proc(p: ^Packs, part: ^Mesh_Part, material: ^Shader_Va
 	if p.shaders.uploaded && !post {
 		layout := Shader_Layout.Skinned if skinned else .Rigid
 		for pass in Surface_Pass {
-			if pass == .Selection { continue }
+			if pass == .Selection || pass == .Shadow && .Shadows in g_render_omitted { continue }
 			cull := surface_cull(part.material, pass, .Blend if part.material.alpha_mode == .Blend else .Opaque)
 			if _, ok := shader_pipeline(&p.shaders, s, {pass, layout, part.material.alpha_mode, cull}); !ok { return {}, "Surface pipeline creation or capacity failed" }
 		}

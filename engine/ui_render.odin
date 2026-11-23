@@ -65,9 +65,10 @@ ui_gpu_init :: proc(g: ^Ui_Gpu, quad_capacity: int, sample_count: i32, allocator
 
 	// The UI draws over the tone mapped scene in the Post pass, which has no
 	// depth image, and blends by alpha.
-	g.pip = sg.make_pipeline(
+	g.pip = render_pipeline(
+		{.Ui},
 		{
-			shader = sg.make_shader(ui_shader_desc(sg.query_backend())),
+			shader = render_shader({.Ui}, ui_shader_desc(sg.query_backend())),
 			sample_count = sample_count,
 			depth = {pixel_format = .NONE},
 			colors = {

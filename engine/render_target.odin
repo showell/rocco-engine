@@ -148,21 +148,21 @@ bloom_chain_init :: proc(c: ^Bloom_Chain) {
 	c.black.image = sg.make_image({width = 1, height = 1, pixel_format = HDR_COLOR_FORMAT, data = {ptr = &black, size = size_of(black)}, label = "bloom-black"})
 	c.black.texture = sg.make_view({texture = {image = c.black.image}})
 	desc := sg.Pipeline_Desc {
-		shader = sg.make_shader(bloom_prefilter_shader_desc(sg.query_backend())),
+		shader = render_shader({.Bloom}, bloom_prefilter_shader_desc(sg.query_backend())),
 		sample_count = 1,
 		colors = {0 = {pixel_format = HDR_COLOR_FORMAT}},
 		depth = {pixel_format = .NONE},
 		cull_mode = .NONE,
 		label = "bloom-prefilter",
 	}
-	c.prefilter = sg.make_pipeline(desc)
-	desc.shader = sg.make_shader(bloom_down_shader_desc(sg.query_backend()))
+	c.prefilter = render_pipeline({.Bloom}, desc)
+	desc.shader = render_shader({.Bloom}, bloom_down_shader_desc(sg.query_backend()))
 	desc.label = "bloom-down"
-	c.down = sg.make_pipeline(desc)
-	desc.shader = sg.make_shader(bloom_up_shader_desc(sg.query_backend()))
+	c.down = render_pipeline({.Bloom}, desc)
+	desc.shader = render_shader({.Bloom}, bloom_up_shader_desc(sg.query_backend()))
 	desc.colors[0].blend = {enabled = true, src_factor_rgb = .ONE, dst_factor_rgb = .ONE, src_factor_alpha = .ONE, dst_factor_alpha = .ZERO}
 	desc.label = "bloom-up"
-	c.up = sg.make_pipeline(desc)
+	c.up = render_pipeline({.Bloom}, desc)
 }
 
 // A readable layer is one a screenshot reads back. WebGPU copies it out, and

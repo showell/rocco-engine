@@ -58,7 +58,8 @@ post_pipeline :: proc(s: ^Shader, location: Post_Location) -> (sg.Pipeline, bool
 	if s.post_pipelines[index].id != 0 { return s.post_pipelines[index], true }
 	if !s.ready || s.programs[index].handle.id == 0 { return {}, false }
 	format := HDR_COLOR_FORMAT if location == .BeforeBloom else TARGET_COLOR_FORMAT
-	pip := sg.make_pipeline({shader = s.programs[index].handle, sample_count = 1, colors = {0 = {pixel_format = format}}, depth = {pixel_format = .NONE}, cull_mode = .NONE})
+	label: [64]u8
+	pip := sg.make_pipeline({shader = s.programs[index].handle, sample_count = 1, colors = {0 = {pixel_format = format}}, depth = {pixel_format = .NONE}, cull_mode = .NONE, label = shader_label(label[:], s.name)})
 	if sg.query_pipeline_state(pip) != .VALID { sg.destroy_pipeline(pip); return {}, false }
 	s.post_pipelines[index] = pip
 	return pip, true
