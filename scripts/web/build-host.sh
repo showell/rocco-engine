@@ -40,8 +40,10 @@ rm -rf "$work"
 mkdir -p "$work" "$target"
 
 echo "== emcc: sokol for WebGPU"
+# sokol_gfx makes its shader modules through wgpu_modules.c, which makes one
+# module for each distinct WGSL source.
 for lib in log gfx app glue; do
-	emcc -c $c_opt -DIMPL -DSOKOL_WGPU --use-port=emdawnwebgpu \
+	emcc -c $c_opt -DIMPL -DSOKOL_WGPU -DwgpuDeviceCreateShaderModule=rocco_wgpu_create_shader_module --use-port=emdawnwebgpu \
 		"$root/sokol-odin/sokol/c/sokol_$lib.c" -o "$work/sokol_$lib.o"
 done
 
@@ -50,12 +52,13 @@ emcc -c $c_opt "$root/scripts/miniaudio/rocco_miniaudio.c" -o "$work/miniaudio.o
 emcc -c $c_opt -DSTBI_NO_STDIO -DSTBI_ONLY_PNG "$odin_root/vendor/stb/src/stb_image.c" -o "$work/stb_image.o"
 emcc -c $c_opt "$root/scripts/web/main.c" -o "$work/main.o"
 emcc -c $c_opt --use-port=emdawnwebgpu "$root/scripts/web/rocco_web.c" -o "$work/rocco_web.o"
+emcc -c $c_opt --use-port=emdawnwebgpu "$root/scripts/web/wgpu_modules.c" -o "$work/wgpu_modules.o"
 
 echo "== odin: engine object"
 odin build "$root/engine" -target:freestanding_wasm32 -build-mode:obj -no-entry-point \
 	-default-to-nil-allocator $odin_opt -vet -strict-style -out:"$work/engine.o"
 
-objects="$work/main.o $work/rocco_web.o $work/engine.o $work/sokol_log.o $work/sokol_gfx.o $work/sokol_app.o $work/sokol_glue.o
+objects="$work/main.o $work/rocco_web.o $work/wgpu_modules.o $work/engine.o $work/sokol_log.o $work/sokol_gfx.o $work/sokol_app.o $work/sokol_glue.o
 	$work/miniaudio.o $work/stb_image.o $root/clay/bindings/odin/clay-odin/wasm/clay.o"
 
 # The Roc functions stay undefined here. The loader gets an unused stub for
