@@ -43,7 +43,7 @@ game can open fullscreen when its Args hold `--fullscreen`.
 ## The checks at startup
 
 The host checks the Launch before it opens the window. No number field can
-be zero, `shadow_map` must be from 8 to 16384 texels, `shadow_cascades` must be at most 4, and each capacity must be
+be zero, `shadow_map` must be from 8 to 16384 texels, `shadow_cascades` must be at most 4, `shadow_cascades` and `shadow_spots` together must be at most 4, and each capacity must be
 inside its limits. For example,
 `capacity.groups` must be above zero and at most 1048576. If a field fails, the
 host prints the name of the field and the rule, then exits with code 1. For
@@ -100,6 +100,7 @@ The [Launch], [Window] and [Capacity] types describe each field.
 | `step_hz` | 120 | No |
 | `shadow_map` | 2048 | No |
 | `shadow_cascades` | 1 | No |
+| `shadow_spots` | 0 | No |
 | `capacity.meshes` | 64 | No |
 | `capacity.skies` | 16 | No |
 | `capacity.images` | 256 | No |
@@ -113,6 +114,11 @@ The [Launch], [Window] and [Capacity] types describe each field.
 every Draw. More cascades split the view through `Scene.shadow.distance` (150 units by default), so shadows
 near the camera are sharper, and each one costs another shadow map and
 another shadow pass.
+
+`shadow_spots` is how many Spot lights may cast a shadow in a Frame. Each
+costs one more shadow map and, in a Frame where that many Spots set
+`shadow`, one more shadow pass. The first Spots in Scene order that set
+`shadow` cast; a later one lights without a shadow.
 
 [Running and debugging](running.md) explains the run modes. A field changes
 only when the game starts again. No [Scene] field changes a field of the

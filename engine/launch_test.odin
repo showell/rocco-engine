@@ -71,6 +71,7 @@ test_launch_check_names_the_first_bad_field_and_its_rule :: proc(t: ^testing.T) 
 		{proc(l: ^Launch) {l.capacity.draws = DRAW_LIMIT + 1}, "capacity.draws", LAUNCH_RULE_DRAWS},
 		{proc(l: ^Launch) {l.capacity.groups = GROUP_LIMIT + 1}, "capacity.groups", LAUNCH_RULE_GROUPS},
 		{proc(l: ^Launch) {l.shadow_cascades = 5}, "shadow_cascades", LAUNCH_RULE_CASCADES},
+		{proc(l: ^Launch) {l.shadow_cascades = 2; l.shadow_spots = 3}, "shadow_spots", LAUNCH_RULE_SPOTS},
 	}
 	for c in cases {
 		launch := launch_default()
@@ -80,6 +81,18 @@ test_launch_check_names_the_first_bad_field_and_its_rule :: proc(t: ^testing.T) 
 		testing.expect_value(t, field, c.field)
 		testing.expect_value(t, rule, c.rule)
 	}
+}
+
+@(test)
+test_launch_shadow_views_are_the_cascades_then_the_spots :: proc(t: ^testing.T) {
+	launch := launch_default()
+	launch.shadow_cascades = 2
+	launch.shadow_spots = 2
+	_, _, ok := launch_check(launch)
+	testing.expect(t, ok)
+	testing.expect_value(t, launch_shadow_views(launch), 4)
+	_, _, layers_ok := launch_device_check(launch, 4096, 3)
+	testing.expect(t, !layers_ok)
 }
 
 @(test)

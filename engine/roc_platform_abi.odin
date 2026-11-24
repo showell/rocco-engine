@@ -335,10 +335,11 @@ Roc_Launch :: struct {
 	capacity: Roc_Launch_Capacity,
 	shadow_cascades: u32,
 	shadow_map: u32,
+	shadow_spots: u32,
 	step_hz: u32,
 }
 
-#assert(size_of(Roc_Launch) == (88 when ROC_POINTER_64 else 68))
+#assert(size_of(Roc_Launch) == (88 when ROC_POINTER_64 else 72))
 #assert(align_of(Roc_Launch) == (8 when ROC_POINTER_64 else 4))
 #assert(offset_of(Roc_Launch, window) == 0)
 #assert(size_of(type_of(Roc_Launch{}.window)) == (40 when ROC_POINTER_64 else 24))
@@ -348,7 +349,9 @@ Roc_Launch :: struct {
 #assert(size_of(type_of(Roc_Launch{}.shadow_cascades)) == 4)
 #assert(offset_of(Roc_Launch, shadow_map) == (76 when ROC_POINTER_64 else 60))
 #assert(size_of(type_of(Roc_Launch{}.shadow_map)) == 4)
-#assert(offset_of(Roc_Launch, step_hz) == (80 when ROC_POINTER_64 else 64))
+#assert(offset_of(Roc_Launch, shadow_spots) == (80 when ROC_POINTER_64 else 64))
+#assert(size_of(type_of(Roc_Launch{}.shadow_spots)) == 4)
+#assert(offset_of(Roc_Launch, step_hz) == (84 when ROC_POINTER_64 else 68))
 #assert(size_of(type_of(Roc_Launch{}.step_hz)) == 4)
 
 Roc_Launch_Window :: struct {

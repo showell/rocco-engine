@@ -46,7 +46,7 @@ host_build :: proc(s: ^State, options: Host_Options, calls: Game_Calls, run_comm
 	audio_init(&s.audio, device = options.audio_device)
 	camera_init(&s.debug_camera)
 	asset_tables_init(&s.packs, &s.renderer.meshes, &s.renderer.skies, &s.renderer.images, &s.audio, capacity, perm, context.allocator)
-	frame_render_init(&s.frame_render, int(capacity.draws), int(capacity.groups), s.launch.shadow_map, int(s.launch.shadow_cascades), perm)
+	frame_render_init(&s.frame_render, int(capacity.draws), int(capacity.groups), s.launch.shadow_map, int(s.launch.shadow_cascades), perm, int(s.launch.shadow_spots))
 	particles_init(&s.particles, perm)
 	s.seam.particles = &s.particles
 	s.frame_render.particles = &s.particles

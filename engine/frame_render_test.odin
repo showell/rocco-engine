@@ -436,8 +436,8 @@ light_point :: proc(pos: Vec3, c: Rgb, range: f32) -> Light {
 	return {tag = .Point, payload = {point = {pos = pos, color = c, range = range}}}
 }
 
-light_spot :: proc(pos, dir: Vec3, c: Rgb, range, inner, outer: f32) -> Light {
-	return {tag = .Spot, payload = {spot = {pos = pos, dir = dir, color = c, range = range, inner = inner, outer = outer}}}
+light_spot :: proc(pos, dir: Vec3, c: Rgb, range, inner, outer: f32, shadow := false) -> Light {
+	return {tag = .Spot, payload = {spot = {pos = pos, dir = dir, color = c, range = range, inner = inner, outer = outer, shadow = shadow}}}
 }
 
 expect_mat4_near :: proc(t: ^testing.T, got, want: Mat4, loc := #caller_location) {
@@ -1900,6 +1900,60 @@ test_frame_render_cascades_use_each_view_matrix :: proc(t: ^testing.T) {
 	for s in f.rec.shadows {
 		expect_mat4_near(t, s.light_mvp, f.rec.lights.light_view_proj[s.view] * mat4_translate({0, 0, -5}))
 	}
+}
+
+@(test)
+test_frame_render_draws_a_shadow_pass_for_each_casting_spot_after_the_cascades :: proc(t: ^testing.T) {
+	f: Frame_Fixture
+	frame_fixture_init(&f, cascades = 2)
+	defer frame_fixture_destroy(&f)
+	f.fr.spot_shadows = 1
+
+	lights := []Light{
+		light_sun({x = 0, y = -1, z = 0}, {r = 1}),
+		light_spot({0, 3, -5}, {0, -1, 0}, {r = 1}, 10, 0.5, 0.6, shadow = true),
+		light_spot({1, 3, -5}, {0, -1, 0}, {g = 1}, 10, 0.5, 0.6, shadow = true),
+	}
+	draws := []Draw{{id = 1, mesh = 1, pos = {0, 0, -5}, scale = {1, 1, 1}, rot = IDENTITY}}
+	frame_fixture_draw(&f, scene_lit(draws, lights), scene_lit(draws, lights), 0)
+
+	testing.expect_value(t, len(f.rec.passes), 5)
+	testing.expect_value(t, f.rec.passes[2], Pass_Begun{.Shadow, 2})
+	testing.expect_value(t, f.rec.passes[3], Pass_Begun{.Main, 0})
+	testing.expect_value(t, f.rec.lights.shadow.x, 2)
+	testing.expect_value(t, f.rec.lights.shadow.y, 1)
+	testing.expect_value(t, f.rec.lights.fog_ramp.w, 2)
+	testing.expect_value(t, f.rec.lights.light_view_proj[2], spot_view_proj({pos = {0, 3, -5}, dir = {0, -1, 0}, outer = 0.6}))
+	testing.expect_value(t, f.rec.lights.light_view_proj[3], Mat4{})
+	// Only the first casting Spot fits the Launch's one Spot shadow.
+	testing.expect_value(t, f.rec.clusters.points[0].cone.y, 1)
+	testing.expect_value(t, f.rec.clusters.points[1].cone.y, 0)
+}
+
+@(test)
+test_frame_render_with_no_spot_shadows_draws_no_spot_pass :: proc(t: ^testing.T) {
+	f: Frame_Fixture
+	frame_fixture_init(&f)
+	defer frame_fixture_destroy(&f)
+
+	lights := []Light{light_spot({0, 3, -5}, {0, -1, 0}, {r = 1}, 10, 0.5, 0.6, shadow = true)}
+	draws := []Draw{{id = 1, mesh = 1, pos = {0, 0, -5}, scale = {1, 1, 1}, rot = IDENTITY}}
+	frame_fixture_draw(&f, scene_lit(draws, lights), scene_lit(draws, lights), 0)
+
+	testing.expect_value(t, len(f.rec.passes), 2)
+	testing.expect_value(t, f.rec.passes[0], Pass_Begun{.Main, 0})
+	testing.expect_value(t, f.rec.lights.shadow.y, 0)
+	testing.expect_value(t, f.rec.clusters.points[0].cone.y, 0)
+}
+
+@(test)
+test_a_spot_shadow_view_looks_down_its_dir :: proc(t: ^testing.T) {
+	view_proj := spot_view_proj({pos = {0, 3, 0}, dir = {0, -1, 0}, outer = 0.6})
+	below := view_proj * [4]f32{0, 0, 0, 1}
+	above := view_proj * [4]f32{0, 6, 0, 1}
+	testing.expect(t, below.w > 0)
+	testing.expect(t, above.w < 0)
+	testing.expect(t, abs(below.x / below.w) < EPS && abs(below.y / below.w) < EPS)
 }
 
 @(test)

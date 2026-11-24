@@ -144,7 +144,7 @@ renderer_init :: proc(r: ^Renderer, launch: Launch) {
 	sample_count := msaa_sample_count(launch.window.samples)
 	render_target_init(&r.target, sample_count)
 	particle_gpu_init(&r.particles, sample_count)
-	r.instance_slot_count = instance_slot_count(int(launch.shadow_cascades))
+	r.instance_slot_count = instance_slot_count(launch_shadow_views(launch))
 	mesh_table_upload(&r.meshes)
 	if r.shaders != nil { shader_table_upload(r.shaders, sample_count) }
 	sky_table_upload(&r.skies)
@@ -163,7 +163,7 @@ renderer_init :: proc(r: ^Renderer, launch: Launch) {
 	r.black_cube = sky_lighting_upload(black, context.allocator)
 	r.environment = environment_light(r, {})
 
-	r.shadow = shadow_map_make(launch.shadow_map, int(launch.shadow_cascades))
+	r.shadow = shadow_map_make(launch.shadow_map, launch_shadow_views(launch))
 
 	shader := sg.make_shader(basic_shader_desc(sg.query_backend()))
 
