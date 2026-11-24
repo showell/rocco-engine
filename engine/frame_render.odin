@@ -248,11 +248,11 @@ Light_Gather :: struct {
 	caster_count:         int,
 }
 
-// A Spot that casts a shadow: where it stands, where it points and its outer
-// half angle.
+// A Spot that casts a shadow: where it stands, where it points, its outer
+// half angle and its range.
 Spot_Caster :: struct {
-	pos, dir: [3]f32,
-	outer:    f32,
+	pos, dir:     [3]f32,
+	outer, range: f32,
 }
 
 // The camera the host draws a frame with.
@@ -773,14 +773,16 @@ frame_render_shadow :: proc(fr: ^Frame_Render, lights: ^Fs_Lights, to_light: [3]
 
 // Each casting Spot draws one perspective map, over its cone out to its
 // range, into the layer after the Sun's cascades and the Spots before it.
-// Must run before the Main pass begins, because sokol passes do not nest.
+// Only the casters inside that view draw into it. Must run before the Main
+// pass begins, because sokol passes do not nest.
 frame_render_spot_shadows :: proc(fr: ^Frame_Render, lights: ^Fs_Lights, casters: []Spot_Caster, span: ^Span_Tick, settings := SHADOW_DEFAULT) {
 	for caster, i in casters {
 		layer := fr.cascades + i
 		view_proj := spot_view_proj(caster)
+		frustum := frustum_from_matrix(view_proj)
 		lights.light_view_proj[layer] = view_proj
 		frame_render_begin_pass(fr, .Shadow, layer, {}, span)
-		frame_render_shadow_parts(fr, view_proj)
+		frame_render_shadow_parts(fr, view_proj, frustum = &frustum)
 		fr.submits.end_pass(fr.submits.ctx)
 	}
 	lights.shadow.y = f32(len(casters))
@@ -788,22 +790,29 @@ frame_render_spot_shadows :: proc(fr: ^Frame_Render, lights: ^Fs_Lights, casters
 	lights.fog_ramp.w = f32(fr.cascades)
 }
 
-// A Spot's view: from its place along its dir, wide enough for its cone.
-// Reversed-Z with no far plane, as the camera's.
+// A Spot's view: from its place along its dir, wide enough for its cone and
+// out to its range. Reversed-Z, as the camera's.
 spot_view_proj :: proc(caster: Spot_Caster) -> Mat4 {
 	up := [3]f32{0, 1, 0} if abs(caster.dir.y) < 0.99 else [3]f32{1, 0, 0}
 	fov := min(2 * caster.outer + 0.1, 3.0)
-	return mat4_perspective_reversed_infinite(fov, 1, SPOT_SHADOW_NEAR) * mat4_look_at(caster.pos, caster.pos + caster.dir, up)
+	far := max(caster.range, 2 * SPOT_SHADOW_NEAR)
+	return mat4_perspective_reversed(fov, 1, SPOT_SHADOW_NEAR, far) * mat4_look_at(caster.pos, caster.pos + caster.dir, up)
+}
+
+// Whether a caster's box reaches into a view's frustum, or no frustum is
+// given.
+placed_in_frustum :: proc(p: ^Placed, frustum: ^[6][4]f32) -> bool {
+	return frustum == nil || frustum_contains_box(frustum^, box_transform(placed_box(p), p.model))
 }
 
 // Opaque ranges precede all fragment-discard work in each cascade.
 @(private = "file")
-frame_render_shadow_parts :: proc(fr: ^Frame_Render, light_view_proj: Mat4, cascade: ^Cascade_View = nil) {
+frame_render_shadow_parts :: proc(fr: ^Frame_Render, light_view_proj: Mat4, cascade: ^Cascade_View = nil, frustum: ^[6][4]f32 = nil) {
 	for pipeline in SCENE_ORDER_PIPELINES {
-		if fr.submits.submit_instances != nil { frame_render_instances(fr, .Shadow, pipeline, light_view_proj, cascade) }
+		if fr.submits.submit_instances != nil { frame_render_instances(fr, .Shadow, pipeline, light_view_proj, cascade, frustum = frustum) }
 		order := Placed_Order{placed = fr.placed[:]}
 		for p in placed_next(&order) {
-			if (fr.submits.submit_instances != nil && p.skin == nil) || p.shadow_count == 0 || (cascade != nil && !cascade_covers(cascade^, p.light_box)) {
+			if (fr.submits.submit_instances != nil && p.skin == nil) || p.shadow_count == 0 || (cascade != nil && !cascade_covers(cascade^, p.light_box)) || !placed_in_frustum(p, frustum) {
 				continue
 			}
 			params := Shadow_Vs_Params{light_mvp = light_view_proj * p.model}
@@ -973,7 +982,7 @@ light_gather :: proc(fr: ^Frame_Render, g: ^Light_Gather, l: Light) {
 		// The first Spots that set shadow cast, while the Launch has room.
 		lane := f32(0)
 		if s.shadow && g.caster_count < fr.spot_shadows {
-			g.casters[g.caster_count] = {pos = vec3_array(s.pos), dir = dir, outer = outer}
+			g.casters[g.caster_count] = {pos = vec3_array(s.pos), dir = dir, outer = outer, range = s.range}
 			g.caster_count += 1
 			lane = f32(g.caster_count)
 		}

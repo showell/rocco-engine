@@ -118,7 +118,7 @@ surface_instance_key :: proc(surface: Surface_Material) -> (key: Surface_Instanc
 }
 
 // Camera eligibility never removes a caster from the shared placement array.
-frame_render_instances :: proc(fr: ^Frame_Render, pass: Surface_Pass, pipeline: Mesh_Pipeline, view_proj: Mat4, cascade: ^Cascade_View = nil, draw_params: []Draw_Params = nil) {
+frame_render_instances :: proc(fr: ^Frame_Render, pass: Surface_Pass, pipeline: Mesh_Pipeline, view_proj: Mat4, cascade: ^Cascade_View = nil, draw_params: []Draw_Params = nil, frustum: ^[6][4]f32 = nil) {
 	context.temp_allocator = arenas.allocator(&fr.instance_scratch)
 	defer {
 		fr.instance_scratch_peak = max(fr.instance_scratch_peak, fr.instance_scratch.total_used)
@@ -135,7 +135,7 @@ frame_render_instances :: proc(fr: ^Frame_Render, pass: Surface_Pass, pipeline: 
 		p := draw_params[placed_index].p if len(draw_params) > 0 else &fr.placed[placed_index]
 		if p.skin != nil { continue }
 		if pass == .Shadow {
-			if p.shadow_count == 0 || cascade != nil && !cascade_covers(cascade^, p.light_box) { continue }
+			if p.shadow_count == 0 || cascade != nil && !cascade_covers(cascade^, p.light_box) || !placed_in_frustum(p, frustum) { continue }
 		} else if !p.camera_visible { continue }
 		vs: Vs_Params
 		base: Fs_Params
