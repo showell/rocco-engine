@@ -431,6 +431,24 @@ json_write_light :: proc(b: ^strings.Builder, light: ^Light) {
 		json_key(b, "range")
 		json_write_f32(b, point.range)
 		strings.write_byte(b, '}')
+	case .Spot:
+		spot := &light.payload.spot
+		json_key(b, "Spot", first = true)
+		json_key(b, "pos", first = true)
+		json_write_vec3(b, spot.pos)
+		json_key(b, "dir")
+		json_write_vec3(b, spot.dir)
+		json_key(b, "color")
+		json_write_rgb(b, spot.color)
+		json_key(b, "range")
+		json_write_f32(b, spot.range)
+		json_key(b, "inner")
+		json_write_f32(b, spot.inner)
+		json_key(b, "outer")
+		json_write_f32(b, spot.outer)
+		json_key(b, "shadow")
+		strings.write_string(b, "true" if spot.shadow else "false")
+		strings.write_byte(b, '}')
 	}
 	strings.write_byte(b, '}')
 }

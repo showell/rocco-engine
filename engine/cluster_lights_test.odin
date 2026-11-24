@@ -72,7 +72,7 @@ test_clusters_pack_scalar_offsets_across_vector_boundaries :: proc(t: ^testing.T
 	}
 	testing.expect_value(t, len(frame.indices) % 4, 0)
 	testing.expect(t, len(frame.indices) <= CLUSTER_INDEX_LIMIT)
-	testing.expect_value(t, CLUSTER_BUFFER_BYTES, 972800)
+	testing.expect_value(t, CLUSTER_BUFFER_BYTES, 1005568)
 }
 
 @(test)

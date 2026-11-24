@@ -436,6 +436,10 @@ light_point :: proc(pos: Vec3, c: Rgb, range: f32) -> Light {
 	return {tag = .Point, payload = {point = {pos = pos, color = c, range = range}}}
 }
 
+light_spot :: proc(pos, dir: Vec3, c: Rgb, range, inner, outer: f32) -> Light {
+	return {tag = .Spot, payload = {spot = {pos = pos, dir = dir, color = c, range = range, inner = inner, outer = outer}}}
+}
+
 expect_mat4_near :: proc(t: ^testing.T, got, want: Mat4, loc := #caller_location) {
 	for c in 0 ..< 4 {
 		for r in 0 ..< 4 {
@@ -687,7 +691,7 @@ test_frame_render_sends_points_once_and_keeps_material_blocks_small :: proc(t: ^
 	frame_fixture_light_list(&f, {light_point({1, 2, 3}, {r = 1, g = 0.5, b = 0}, 6)})
 	testing.expect_value(t, f.rec.lights_calls, 1)
 	testing.expect_value(t, len(f.rec.clusters.points), 1)
-	testing.expect_value(t, f.rec.clusters.points[0], Packed_Light{{1, 2, 3, 1}, {1, 0.5, 0, 6}})
+	testing.expect_value(t, f.rec.clusters.points[0], Packed_Light{{1, 2, 3, 1}, {1, 0.5, 0, 6}, {}, {}})
 	testing.expect_value(t, size_of(Fs_Params), 96)
 	testing.expect_value(t, size_of(Fs_Lights), 512)
 }
@@ -767,6 +771,54 @@ test_frame_render_rejects_nonfinite_point_positions :: proc(t: ^testing.T) {
 	frame_fixture_light_list(&f, {light_point({x = math.nan_f32()}, {r = 1}, 1)})
 	testing.expect_value(t, len(f.rec.clusters.points), 0)
 	testing.expect_value(t, f.fr.lights_logged, bit_set[Light_Drop]{.Bad_Point})
+}
+
+@(test)
+test_frame_render_packs_a_spot_with_its_unit_dir_and_cone_cosines :: proc(t: ^testing.T) {
+	f: Frame_Fixture
+	frame_fixture_init(&f)
+	defer frame_fixture_destroy(&f)
+	frame_fixture_light_list(&f, {light_spot({1, 2, 3}, {0, -2, 0}, {r = 1, g = 0.5}, 6, 0.4, 0.5)})
+	testing.expect_value(t, len(f.rec.clusters.points), 1)
+	spot := f.rec.clusters.points[0]
+	testing.expect_value(t, spot.pos, [4]f32{1, 2, 3, 1})
+	testing.expect_value(t, spot.color, [4]f32{1, 0.5, 0, 6})
+	testing.expect_value(t, spot.dir.xyz, [3]f32{0, -1, 0})
+	testing.expect(t, abs(spot.dir.w - math.cos(f32(0.5))) < EPS)
+	testing.expect(t, abs(spot.cone.x - math.cos(f32(0.4))) < EPS)
+}
+
+@(test)
+test_frame_render_keeps_a_spots_cone_edges_apart :: proc(t: ^testing.T) {
+	f: Frame_Fixture
+	frame_fixture_init(&f)
+	defer frame_fixture_destroy(&f)
+	frame_fixture_light_list(&f, {light_spot({}, {y = -1}, {r = 1}, 6, 0.9, 0.5)})
+	spot := f.rec.clusters.points[0]
+	testing.expect(t, spot.cone.x > spot.dir.w)
+}
+
+@(test)
+test_frame_render_drops_a_spot_with_a_zero_dir_and_logs_once :: proc(t: ^testing.T) {
+	f: Frame_Fixture
+	frame_fixture_init(&f)
+	defer frame_fixture_destroy(&f)
+	for _ in 0 ..< 2 {
+		frame_fixture_light_list(&f, {light_spot({}, {}, {r = 1}, 6, 0.4, 0.5), light_spot({}, {y = -1}, {r = 1}, 0, 0.4, 0.5)})
+		testing.expect_value(t, len(f.rec.clusters.points), 0)
+		testing.expect_value(t, f.fr.lights_logged, bit_set[Light_Drop]{.Zero_Spot_Dir, .Bad_Range})
+	}
+}
+
+@(test)
+test_a_group_moves_a_spot_and_turns_its_dir :: proc(t: ^testing.T) {
+	parent := Walk_Parent{world = {pos = {1, 0, 0}, rot = linalg.quaternion_angle_axis_f32(math.PI / 2, {0, 1, 0})}}
+	parent.id.grouped = true
+	out := light_under(light_spot({0, 0, 1}, {0, 0, -1}, {r = 1}, 6, 0.4, 0.5), &parent)
+	pos := vec3_array(out.payload.spot.pos)
+	dir := vec3_array(out.payload.spot.dir)
+	testing.expectf(t, linalg.length(pos - [3]f32{2, 0, 0}) < EPS, "pos %v", pos)
+	testing.expectf(t, linalg.length(dir - [3]f32{-1, 0, 0}) < EPS, "dir %v", dir)
 }
 
 @(test)

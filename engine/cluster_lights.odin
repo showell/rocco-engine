@@ -13,12 +13,16 @@ CLUSTER_LIGHT_LIMIT :: 64
 CLUSTER_INDEX_LIMIT :: CLUSTER_COUNT * CLUSTER_LIGHT_LIMIT
 CLUSTER_BUFFER_BYTES :: MAX_POINT_LIGHTS * size_of(Packed_Light) + CLUSTER_COUNT * size_of(Cluster_Range) + CLUSTER_INDEX_LIMIT * size_of(u32)
 
-#assert(size_of(Packed_Light) == 32)
+#assert(size_of(Packed_Light) == 64)
 #assert(size_of(Cluster_Range) == 16)
 #assert(CLUSTER_LIGHT_LIMIT % 4 == 0)
 
+// pos.w is 1. color.w is the range. A Spot's dir.xyz is its unit direction
+// and dir.w the cosine of its outer half angle, cone.x the cosine of its
+// inner one. A Point's dir and cone are zero, which the shader reads as no
+// cone.
 Packed_Light :: struct {
-	pos, color: [4]f32,
+	pos, color, dir, cone: [4]f32,
 }
 
 Cluster_Range :: struct {

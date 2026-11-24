@@ -966,6 +966,7 @@ leaves_under = |parent, node| match node {
 	Collider(c) => [Collider(in_world(parent, c))]
 	Light(Point(l)) => [Light(Point({ ..l, pos: Pose.compose(parent, { pos: l.pos, rot: Quat.identity }).pos }))]
 	Light(Directional(l)) => [Light(Directional({ ..l, dir: Quat.rotate(l.dir, parent.rot) }))]
+	Light(Spot(l)) => [Light(Spot({ ..l, pos: Pose.compose(parent, { pos: l.pos, rot: Quat.identity }).pos, dir: Quat.rotate(l.dir, parent.rot) }))]
 	Light(l) => [Light(l)]
 	Speaker(s) => match s.at {
 		At(a) => [Speaker({ ..s, at: At({ ..a, pos: Pose.compose(parent, { pos: a.pos, rot: Quat.identity }).pos }) })]

@@ -20,6 +20,12 @@ Light := [].{
 	## Light from `pos` that falls off to zero at `range`.
 	point : Vec3, Rgb, F32 -> Vocabulary.Light
 	point = |pos, color, range| Point({ pos, color, range })
+
+	## Light from `pos` along `dir` in a cone, falling off to zero at `range`.
+	## `cone` is the half angle of its edge in radians, and the light softens
+	## over the outer fifth of it.
+	spot : Vec3, Vec3, Rgb, F32, F32 -> Vocabulary.Light
+	spot = |pos, dir, color, range, cone| Spot({ pos, dir, color, range, inner: 0.8 * cone, outer: cone, shadow: False })
 }
 
 grey : Rgb
@@ -29,3 +35,4 @@ expect Light.ambient(grey) == Ambient(grey)
 expect Light.directional({ x: 0.0, y: -1.0, z: 0.0 }, grey) == Directional({ dir: { x: 0.0, y: -1.0, z: 0.0 }, color: grey, shadow: False })
 expect Light.sun({ x: 0.0, y: -1.0, z: 0.0 }, grey) == Directional({ dir: { x: 0.0, y: -1.0, z: 0.0 }, color: grey, shadow: True })
 expect Light.point({ x: 1.0, y: 2.0, z: 3.0 }, grey, 6.0) == Point({ pos: { x: 1.0, y: 2.0, z: 3.0 }, color: grey, range: 6.0 })
+expect Light.spot({ x: 1.0, y: 2.0, z: 3.0 }, { x: 0.0, y: -1.0, z: 0.0 }, grey, 6.0, 0.5) == Spot({ pos: { x: 1.0, y: 2.0, z: 3.0 }, dir: { x: 0.0, y: -1.0, z: 0.0 }, color: grey, range: 6.0, inner: 0.4, outer: 0.5, shadow: False })
