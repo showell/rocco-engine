@@ -1923,11 +1923,35 @@ test_frame_render_draws_a_shadow_pass_for_each_casting_spot_after_the_cascades :
 	testing.expect_value(t, f.rec.lights.shadow.x, 2)
 	testing.expect_value(t, f.rec.lights.shadow.y, 1)
 	testing.expect_value(t, f.rec.lights.fog_ramp.w, 2)
-	testing.expect_value(t, f.rec.lights.light_view_proj[2], spot_view_proj({pos = {0, 3, -5}, dir = {0, -1, 0}, outer = 0.6}))
+	testing.expect_value(t, f.rec.lights.light_view_proj[2], spot_view_proj({pos = {0, 3, -5}, dir = {0, -1, 0}, outer = 0.6, range = 10}))
 	testing.expect_value(t, f.rec.lights.light_view_proj[3], Mat4{})
 	// Only the first casting Spot fits the Launch's one Spot shadow.
 	testing.expect_value(t, f.rec.clusters.points[0].cone.y, 1)
 	testing.expect_value(t, f.rec.clusters.points[1].cone.y, 0)
+}
+
+@(test)
+test_a_spot_shadow_pass_draws_only_the_casters_in_its_cone :: proc(t: ^testing.T) {
+	f: Frame_Fixture
+	frame_fixture_init(&f)
+	defer frame_fixture_destroy(&f)
+	f.fr.spot_shadows = 1
+
+	lights := []Light{light_spot({0, 3, -5}, {0, -1, 0}, {r = 1}, 10, 0.4, 0.5, shadow = true)}
+	// One cube under the Spot, one far to its side, and one under it past its range.
+	draws := []Draw{
+		{id = 1, mesh = 1, pos = {0, 0, -5}, scale = {1, 1, 1}, rot = IDENTITY},
+		{id = 2, mesh = 1, pos = {20, 0, -5}, scale = {1, 1, 1}, rot = IDENTITY},
+		{id = 3, mesh = 1, pos = {0, -20, -5}, scale = {1, 1, 1}, rot = IDENTITY},
+	}
+	frame_fixture_draw(&f, scene_lit(draws, lights), scene_lit(draws, lights), 0)
+
+	in_spot := 0
+	for s in f.rec.shadows {
+		if s.view == 1 { in_spot += 1 }
+	}
+	testing.expect_value(t, f.rec.passes[0], Pass_Begun{.Shadow, 1})
+	testing.expect_value(t, in_spot, 1)
 }
 
 @(test)
@@ -1948,7 +1972,7 @@ test_frame_render_with_no_spot_shadows_draws_no_spot_pass :: proc(t: ^testing.T)
 
 @(test)
 test_a_spot_shadow_view_looks_down_its_dir :: proc(t: ^testing.T) {
-	view_proj := spot_view_proj({pos = {0, 3, 0}, dir = {0, -1, 0}, outer = 0.6})
+	view_proj := spot_view_proj({pos = {0, 3, 0}, dir = {0, -1, 0}, outer = 0.6, range = 10})
 	below := view_proj * [4]f32{0, 0, 0, 1}
 	above := view_proj * [4]f32{0, 6, 0, 1}
 	testing.expect(t, below.w > 0)
