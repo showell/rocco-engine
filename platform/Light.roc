@@ -26,6 +26,12 @@ Light := [].{
 	## over the outer fifth of it.
 	spot : Vec3, Vec3, Rgb, F32, F32 -> Vocabulary.Light
 	spot = |pos, dir, color, range, cone| Spot({ pos, dir, color, range, inner: 0.8 * cone, outer: cone, shadow: False })
+
+	## A Spot that casts a shadow, while `Launch.shadow_spots` has room for
+	## it: the first ones in Scene order cast. Its `cone` should be under
+	## about 1.4, since one map covers it.
+	shadowed_spot : Vec3, Vec3, Rgb, F32, F32 -> Vocabulary.Light
+	shadowed_spot = |pos, dir, color, range, cone| Spot({ pos, dir, color, range, inner: 0.8 * cone, outer: cone, shadow: True })
 }
 
 grey : Rgb

@@ -13,6 +13,7 @@ LAUNCH_RULE_DRAWS :: "must be at most 278653, so the uniform buffer size fits so
 LAUNCH_RULE_GROUPS :: "must be at most 1048576"
 LAUNCH_RULE_SHADOW_MAP :: "must be from 8 to 16384 texels"
 LAUNCH_RULE_CASCADES :: "must be at most 4"
+LAUNCH_RULE_SPOTS :: "with shadow_cascades must be at most 4"
 // The rules above spell these numbers out.
 #assert(UI_QUAD_LIMIT == 16384 && len(Primitive) == 5 && SKY_CAPACITY_MIN == 2 && SOUND_CAPACITY_MIN == 2 && IMAGE_CAPACITY_MIN == 2)
 #assert(SLOT_LIMIT == 65536 && DRAW_LIMIT == 278653 && GROUP_LIMIT == 1048576 && MAX_CASCADES == 4)
@@ -35,6 +36,7 @@ launch_default :: proc() -> Launch {
 		step_hz = 120,
 		shadow_map = 2048,
 		shadow_cascades = 1,
+		shadow_spots = 0,
 		capacity = {meshes = 64, skies = 16, images = 256, draws = 16384, groups = 1024, ui_quads = 16384, sounds = 64, voices = 64},
 		programs = {coverage = true, particles = true, ui = true},
 	}
@@ -99,8 +101,16 @@ launch_check :: proc(launch: Launch) -> (field: string, rule: string, ok: bool) 
 		return "shadow_map", LAUNCH_RULE_SHADOW_MAP, false
 	case launch.shadow_cascades > MAX_CASCADES:
 		return "shadow_cascades", LAUNCH_RULE_CASCADES, false
+	case i64(launch.shadow_cascades) + i64(launch.shadow_spots) > MAX_CASCADES:
+		return "shadow_spots", LAUNCH_RULE_SPOTS, false
 	}
 	return "", "", true
+}
+
+// The shadow map's layers: the Sun's cascades, then one for each Spot that
+// may cast.
+launch_shadow_views :: proc(launch: Launch) -> int {
+	return int(launch.shadow_cascades) + int(launch.shadow_spots)
 }
 
 // The sample count of the render target and the pipelines.
@@ -130,6 +140,9 @@ launch_device_check :: proc(launch: Launch, max_size, max_layers: i32) -> (field
 	}
 	if i64(launch.shadow_cascades) > i64(max_layers) {
 		return "shadow_cascades", "exceeds the device shadow array layers", false
+	}
+	if i64(launch_shadow_views(launch)) > i64(max_layers) {
+		return "shadow_spots", "with shadow_cascades exceeds the device shadow array layers", false
 	}
 	return "", "", true
 }

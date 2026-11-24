@@ -15,6 +15,8 @@ MAX_CASCADES :: 4
 // and its edges do not crawl as a Draw moves.
 SHADOW_GRID :: f32(1)
 SHADOW_NORMAL_OFFSET :: f32(0.05)
+// A Spot's shadow map starts this far from it, in metres.
+SPOT_SHADOW_NEAR :: f32(0.05)
 // The tone_map_fs branch that draws each Tone_Map. The glue numbers the tags
 // in name order, so a new tag would move them.
 @(rodata)
@@ -151,6 +153,7 @@ Frame_Render :: struct {
 	attach_logged:      map[Joint_Log_Key]struct {},
 	shadow_map:         u32,
 	cascades:           int,
+	spot_shadows:       int,
 	allocator:          mem.Allocator,
 }
 
@@ -236,10 +239,20 @@ Frame_Room :: struct {
 }
 
 // The bounded light lists live in the Frame arena. The Sun leads directionals.
+// casters are the Spots that cast this Frame, in Scene order.
 Light_Gather :: struct {
 	frame:                Fs_Lights,
 	directionals, points: [dynamic]Packed_Light,
 	has_sun, has_ambient: bool,
+	casters:              [MAX_CASCADES]Spot_Caster,
+	caster_count:         int,
+}
+
+// A Spot that casts a shadow: where it stands, where it points and its outer
+// half angle.
+Spot_Caster :: struct {
+	pos, dir: [3]f32,
+	outer:    f32,
 }
 
 // The camera the host draws a frame with.
@@ -255,10 +268,11 @@ Frame_View :: struct {
 	aspect:    f32,
 }
 
-frame_render_init :: proc(fr: ^Frame_Render, draws, groups: int, shadow_map: u32, cascades: int, perm: mem.Allocator) {
+frame_render_init :: proc(fr: ^Frame_Render, draws, groups: int, shadow_map: u32, cascades: int, perm: mem.Allocator, spot_shadows := 0) {
 	fr.draw_capacity = draws
 	fr.shadow_map = shadow_map
 	fr.cascades = cascades
+	fr.spot_shadows = spot_shadows
 	fr.allocator = perm
 	pairing_init(&fr.pairing, draws, groups, perm)
 	fr.placed = make([dynamic]Placed, 0, draws, perm)
@@ -397,6 +411,9 @@ frame_render_draw :: proc(
 	when ODIN_OS == .Darwin { render_diagnostics_begin(fr, view) }
 	if gathered.has_sun && placed_casts(fr.placed[:]) {
 		frame_render_shadow(fr, &lights, gathered.directionals[0].pos.xyz, view, &span, shadow)
+	}
+	if gathered.caster_count > 0 && placed_casts(fr.placed[:]) {
+		frame_render_spot_shadows(fr, &lights, gathered.casters[:gathered.caster_count], &span, shadow)
 	}
 
 	frame_render_begin_pass(fr, .Main, 0, env.clear, &span)
@@ -754,6 +771,31 @@ frame_render_shadow :: proc(fr: ^Frame_Render, lights: ^Fs_Lights, to_light: [3]
 	lights.view_dir = {forward.x, forward.y, forward.z, distance}
 }
 
+// Each casting Spot draws one perspective map, over its cone out to its
+// range, into the layer after the Sun's cascades and the Spots before it.
+// Must run before the Main pass begins, because sokol passes do not nest.
+frame_render_spot_shadows :: proc(fr: ^Frame_Render, lights: ^Fs_Lights, casters: []Spot_Caster, span: ^Span_Tick, settings := SHADOW_DEFAULT) {
+	for caster, i in casters {
+		layer := fr.cascades + i
+		view_proj := spot_view_proj(caster)
+		lights.light_view_proj[layer] = view_proj
+		frame_render_begin_pass(fr, .Shadow, layer, {}, span)
+		frame_render_shadow_parts(fr, view_proj)
+		fr.submits.end_pass(fr.submits.ctx)
+	}
+	lights.shadow.y = f32(len(casters))
+	lights.shadow.z = settings.normal_bias
+	lights.fog_ramp.w = f32(fr.cascades)
+}
+
+// A Spot's view: from its place along its dir, wide enough for its cone.
+// Reversed-Z with no far plane, as the camera's.
+spot_view_proj :: proc(caster: Spot_Caster) -> Mat4 {
+	up := [3]f32{0, 1, 0} if abs(caster.dir.y) < 0.99 else [3]f32{1, 0, 0}
+	fov := min(2 * caster.outer + 0.1, 3.0)
+	return mat4_perspective_reversed_infinite(fov, 1, SPOT_SHADOW_NEAR) * mat4_look_at(caster.pos, caster.pos + caster.dir, up)
+}
+
 // Opaque ranges precede all fragment-discard work in each cascade.
 @(private = "file")
 frame_render_shadow_parts :: proc(fr: ^Frame_Render, light_view_proj: Mat4, cascade: ^Cascade_View = nil) {
@@ -928,7 +970,14 @@ light_gather :: proc(fr: ^Frame_Render, g: ^Light_Gather, l: Light) {
 		cos_outer := math.cos(outer)
 		// smoothstep needs its edges apart.
 		cos_inner := max(math.cos(inner), cos_outer + 1e-4)
-		append(&g.points, Packed_Light{{s.pos.x, s.pos.y, s.pos.z, 1}, {s.color.r, s.color.g, s.color.b, s.range}, {dir.x, dir.y, dir.z, cos_outer}, {cos_inner, 0, 0, 0}})
+		// The first Spots that set shadow cast, while the Launch has room.
+		lane := f32(0)
+		if s.shadow && g.caster_count < fr.spot_shadows {
+			g.casters[g.caster_count] = {pos = vec3_array(s.pos), dir = dir, outer = outer}
+			g.caster_count += 1
+			lane = f32(g.caster_count)
+		}
+		append(&g.points, Packed_Light{{s.pos.x, s.pos.y, s.pos.z, 1}, {s.color.r, s.color.g, s.color.b, s.range}, {dir.x, dir.y, dir.z, cos_outer}, {cos_inner, lane, 0, 0}})
 	}
 }
 

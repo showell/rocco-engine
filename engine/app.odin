@@ -137,24 +137,24 @@ app_desc :: proc(launch: Launch, mode: Run_Mode, allocator: mem.Allocator) -> sa
 
 // The sokol sizes the capacities need. The caller sets the environment,
 // because only a running sokol app has one.
-app_gfx_desc :: proc(capacity: Capacity, cascades: int) -> sg.Desc {
+app_gfx_desc :: proc(capacity: Capacity, shadow_views: int) -> sg.Desc {
 	textures := texture_pool_size(capacity)
 	return {
 		logger = {func = slog.func},
-		buffer_pool_size = 3 * i32(capacity.meshes) + 4 + 2 + i32(instance_slot_count(cascades)),
+		buffer_pool_size = 3 * i32(capacity.meshes) + 4 + 2 + i32(instance_slot_count(shadow_views)),
 		shader_pool_size = SHADER_ASSET_LIMIT * 9 + 32 + 1 + 3 + 5,
 		pipeline_pool_size = SHADER_ASSET_LIMIT * SHADER_PIPELINE_LIMIT + 64 + 2 + 7 + 9,
 		image_pool_size = textures,
 		sampler_pool_size = textures,
 		view_pool_size = view_pool_size(capacity),
-		uniform_buffer_size = uniform_buffer_size(capacity, cascades),
+		uniform_buffer_size = uniform_buffer_size(capacity, shadow_views),
 	}
 }
 
 init_cb :: proc "c" () {
 	context = g_state.ctx
 
-	gfx := app_gfx_desc(g_state.launch.capacity, int(g_state.launch.shadow_cascades))
+	gfx := app_gfx_desc(g_state.launch.capacity, launch_shadow_views(g_state.launch))
 	gfx.environment = sglue.environment()
 	when ODIN_OS == .Darwin { g_render_diagnostics_enabled = rocco_render_diagnostics_open() }
 	sg.setup(gfx)

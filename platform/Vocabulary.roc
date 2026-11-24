@@ -44,6 +44,10 @@ Vocabulary := [].{
 	##   view, from 1 to 4. 1 casts one map over every Draw. 2 to 4 split the
 	##   view up to Scene.shadow.distance (150 by default), so near shadows are sharp and far ones
 	##   are coarse. Each cascade is one more `shadow_map` by `shadow_map` map.
+	## - `shadow_spots`: how many Spots may cast a shadow in a Frame, from 0.
+	##   With `shadow_cascades`, at most 4. The first Spots in Scene order
+	##   that set `shadow` cast, each one more `shadow_map` by `shadow_map`
+	##   map. 0 makes no map for them.
 	## - `capacity`: the table sizes. No Scene field replaces them.
 	## - `programs`: the renderer's optional GPU programs that the game uses.
 	##   No Scene field replaces them.
@@ -52,6 +56,7 @@ Vocabulary := [].{
 		step_hz : U32,
 		shadow_map : U32,
 		shadow_cascades : U32,
+		shadow_spots : U32,
 		capacity : Capacity,
 		programs : Programs,
 	}
@@ -322,8 +327,8 @@ Vocabulary := [].{
 	## - `Point`: falls off to zero at `range`. A Group moves and turns `pos`.
 	## - `Spot`: a Point lit only inside a cone along `dir`. `inner` and
 	##   `outer` are half angles in radians: full inside `inner`, none past
-	##   `outer`, smooth between. A Group moves `pos` and turns `dir`. The host
-	##   does not draw a Spot's shadow yet, so `shadow` changes nothing.
+	##   `outer`, smooth between. A Group moves `pos` and turns `dir`. A Spot
+	##   that sets `shadow` casts one when `Launch.shadow_spots` has room.
 	##
 	## A colour carries its intensity and can exceed 1. The host uses the first
 	## Ambient. The host accepts four Directionals, including the Sun, and

@@ -98,8 +98,9 @@ layout(binding = 1) uniform fs_params {
     vec4 environment_params;
 };
 
-// shadow is the cascade count, the Sun's slot, the normal offset and the
-// share of each cascade that blends into the next. A count of 0 means no Sun.
+// shadow is the cascade count, the count of Spots that cast, the normal
+// offset and the share of each cascade that blends into the next. A cascade
+// count of 0 means no Sun.
 // cascade_far[i] is the far depth of cascade i along view_dir, the camera's
 // unit view direction; its near depth is cascade_far[i - 1], or 0 for
 // cascade 0. With legacy single-map fitting, cascade_far is zero. The array
@@ -107,7 +108,8 @@ layout(binding = 1) uniform fs_params {
 // camera_pos.w is comparison depth bias. view_dir.w is the effective shadow
 // distance, or 0 for legacy single-map fitting. fog_color.w is filter radius.
 // fog_color is linear. fog_ramp is the fog start,
-// 1 / (end - start), the amount and a spare. Fog with amount 0 is all zero, so its factor is 0.
+// 1 / (end - start), the amount and the shadow layer of the first Spot that
+// casts. Fog with amount 0 is zero in x to z, so its factor is 0.
 layout(binding = 2) uniform fs_lights {
     vec4 ambient;
     vec4 camera_pos;
@@ -123,7 +125,8 @@ layout(binding = 2) uniform fs_lights {
 };
 
 // A Spot's dir.xyz is its direction and dir.w the cosine of its outer half
-// angle, cone.x of its inner one. A Point's dir is zero.
+// angle, cone.x of its inner one, and cone.y 1 more than its lane in
+// spot_visibilities, or 0 when it casts no shadow. A Point's dir is zero.
 struct Point { vec4 pos; vec4 color; vec4 dir; vec4 cone; };
 // Cluster and LightIndices share a member name. The WGSL compile merges
 // structs with the same layout and then cannot find a second member name.
@@ -235,6 +238,22 @@ float sun_visibility_in(int cascade, vec3 n) {
     return inside ? sum / (width * width) : 1.0;
 }
 
+// The share of each shadowed Spot's light that reaches this point, one lane
+// a Spot. shadow.y is how many Spots cast this Frame and fog_ramp.w the
+// shadow layer of the first; their maps follow the Sun's cascades in
+// light_view_proj. A lane past the count is 1. The branches test uniforms
+// only, so D3D keeps uniform control flow around SampleCmp.
+vec4 spot_visibilities(vec3 n) {
+    float count = shadow.y;
+    int first = int(fog_ramp.w);
+    vec4 vis = vec4(1.0);
+    if (count > 0.0) { vis.x = sun_visibility_in(first, n); }
+    if (count > 1.0) { vis.y = sun_visibility_in(first + 1, n); }
+    if (count > 2.0) { vis.z = sun_visibility_in(first + 2, n); }
+    if (count > 3.0) { vis.w = sun_visibility_in(first + 3, n); }
+    return vis;
+}
+
 // 1 in the lane of the cascade, or all zero for -1.
 vec4 cascade_mask(int cascade) {
     return vec4(equal(ivec4(cascade), ivec4(0, 1, 2, 3)));
@@ -339,6 +358,7 @@ vec4 surface_color(bool premultiplied) {
     if (shadow.x > 0.0) {
         sun_attenuation = sun_visibility(safe_normalize(v_nrm) * facing);
     }
+    vec4 spot_vis = spot_visibilities(safe_normalize(v_nrm) * facing);
     int directional_count = int(ambient.w);
     int total = directional_count + int(cluster.y);
     for (int i = 0; i < total; i++) {
@@ -364,6 +384,11 @@ vec4 surface_color(bool premultiplied) {
             l = safe_normalize(to_light);
             if (dot(point.dir.xyz, point.dir.xyz) > 0.0) {
                 attenuation *= smoothstep(point.dir.w, point.cone.x, dot(-l, point.dir.xyz));
+            }
+            // cone.y is 1 more than the Spot's lane in spot_vis, or 0.
+            int lane = int(point.cone.y) - 1;
+            if (lane >= 0) {
+                attenuation *= dot(spot_vis, vec4(equal(ivec4(lane), ivec4(0, 1, 2, 3))));
             }
             radiance = point.color.rgb;
         }
