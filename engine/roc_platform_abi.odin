@@ -1427,12 +1427,14 @@ Roc_VocabularyNode_Light_Tag :: enum u8 {
 	Ambient = 0,
 	Directional = 1,
 	Point = 2,
+	Spot = 3,
 }
 
 Roc_VocabularyNode_Light_Payload :: struct #raw_union {
 	ambient: Roc_VocabularyNode_Draw_Glow,
 	directional: Roc_VocabularyNode_Light_Directional,
 	point: Roc_VocabularyNode_Light_Point,
+	spot: Roc_VocabularyNode_Light_Spot,
 }
 
 Roc_VocabularyNode_Light :: struct {
@@ -1440,9 +1442,9 @@ Roc_VocabularyNode_Light :: struct {
 	tag: Roc_VocabularyNode_Light_Tag,
 }
 
-#assert(size_of(Roc_VocabularyNode_Light) == 32)
+#assert(size_of(Roc_VocabularyNode_Light) == 56)
 #assert(align_of(Roc_VocabularyNode_Light) == 4)
-#assert(offset_of(Roc_VocabularyNode_Light, tag) == 28)
+#assert(offset_of(Roc_VocabularyNode_Light, tag) == 52)
 
 Roc_VocabularyNode_Light_Ambient :: Roc_VocabularyNode_Draw_Glow
 Roc_VocabularyNode_Light_Directional :: struct {
@@ -1479,6 +1481,36 @@ Roc_VocabularyNode_Light_Point :: struct {
 
 Roc_VocabularyNode_Light_Point_Color :: Roc_VocabularyNode_Draw_Glow
 Roc_VocabularyNode_Light_Point_Pos :: Roc_Init_Commands_Play_At_At_Pos
+Roc_VocabularyNode_Light_Spot :: struct {
+	color: Roc_VocabularyNode_Draw_Glow,
+	dir: Roc_Init_Commands_Play_At_At_Pos,
+	inner: f32,
+	outer: f32,
+	pos: Roc_Init_Commands_Play_At_At_Pos,
+	range: f32,
+	shadow: bool,
+}
+
+#assert(size_of(Roc_VocabularyNode_Light_Spot) == 52)
+#assert(align_of(Roc_VocabularyNode_Light_Spot) == 4)
+#assert(offset_of(Roc_VocabularyNode_Light_Spot, color) == 0)
+#assert(size_of(type_of(Roc_VocabularyNode_Light_Spot{}.color)) == 12)
+#assert(offset_of(Roc_VocabularyNode_Light_Spot, dir) == 12)
+#assert(size_of(type_of(Roc_VocabularyNode_Light_Spot{}.dir)) == 12)
+#assert(offset_of(Roc_VocabularyNode_Light_Spot, inner) == 24)
+#assert(size_of(type_of(Roc_VocabularyNode_Light_Spot{}.inner)) == 4)
+#assert(offset_of(Roc_VocabularyNode_Light_Spot, outer) == 28)
+#assert(size_of(type_of(Roc_VocabularyNode_Light_Spot{}.outer)) == 4)
+#assert(offset_of(Roc_VocabularyNode_Light_Spot, pos) == 32)
+#assert(size_of(type_of(Roc_VocabularyNode_Light_Spot{}.pos)) == 12)
+#assert(offset_of(Roc_VocabularyNode_Light_Spot, range) == 44)
+#assert(size_of(type_of(Roc_VocabularyNode_Light_Spot{}.range)) == 4)
+#assert(offset_of(Roc_VocabularyNode_Light_Spot, shadow) == 48)
+#assert(size_of(type_of(Roc_VocabularyNode_Light_Spot{}.shadow)) == 1)
+
+Roc_VocabularyNode_Light_Spot_Color :: Roc_VocabularyNode_Draw_Glow
+Roc_VocabularyNode_Light_Spot_Dir :: Roc_Init_Commands_Play_At_At_Pos
+Roc_VocabularyNode_Light_Spot_Pos :: Roc_Init_Commands_Play_At_At_Pos
 Roc_VocabularyNode_Speaker :: struct {
 	id: u64,
 	at: Roc_Init_Commands_Play_At,

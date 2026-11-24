@@ -120,6 +120,7 @@ Light_Drop :: enum {
 	Zero_Dir,
 	Bad_Range,
 	Bad_Point,
+	Zero_Spot_Dir,
 	Directional_Over_Limit,
 	Points_Over_Limit,
 	Cluster_Over_Limit,
@@ -869,7 +870,7 @@ light_gather :: proc(fr: ^Frame_Render, g: ^Light_Gather, l: Light) {
 			light_drop(fr, .Zero_Dir)
 			return
 		}
-		packed := Packed_Light{{to_light.x, to_light.y, to_light.z, 0}, {d.color.r, d.color.g, d.color.b, 0}}
+		packed := Packed_Light{{to_light.x, to_light.y, to_light.z, 0}, {d.color.r, d.color.g, d.color.b, 0}, {}, {}}
 		if d.shadow && g.has_sun {
 			light_drop(fr, .Second_Sun)
 		} else if d.shadow {
@@ -901,7 +902,33 @@ light_gather :: proc(fr: ^Frame_Render, g: ^Light_Gather, l: Light) {
 			light_drop(fr, .Points_Over_Limit)
 			return
 		}
-		append(&g.points, Packed_Light{{p.pos.x, p.pos.y, p.pos.z, 1}, {p.color.r, p.color.g, p.color.b, p.range}})
+		append(&g.points, Packed_Light{{p.pos.x, p.pos.y, p.pos.z, 1}, {p.color.r, p.color.g, p.color.b, p.range}, {}, {}})
+	case .Spot:
+		s := l.payload.spot
+		if !(s.range > 0 && s.range < max(f32)) {
+			light_drop(fr, .Bad_Range)
+			return
+		}
+		if s.pos.x - s.pos.x != 0 || s.pos.y - s.pos.y != 0 || s.pos.z - s.pos.z != 0 {
+			light_drop(fr, .Bad_Point)
+			return
+		}
+		dir := v3_normalize_or_zero(vec3_array(s.dir))
+		if dir == 0 {
+			light_drop(fr, .Zero_Spot_Dir)
+			return
+		}
+		if len(g.points) == MAX_POINT_LIGHTS {
+			light_drop(fr, .Points_Over_Limit)
+			return
+		}
+		// The inner cone never passes the outer.
+		outer := clamp(s.outer, 0, math.PI)
+		inner := clamp(s.inner, 0, outer)
+		cos_outer := math.cos(outer)
+		// smoothstep needs its edges apart.
+		cos_inner := max(math.cos(inner), cos_outer + 1e-4)
+		append(&g.points, Packed_Light{{s.pos.x, s.pos.y, s.pos.z, 1}, {s.color.r, s.color.g, s.color.b, s.range}, {dir.x, dir.y, dir.z, cos_outer}, {cos_inner, 0, 0, 0}})
 	}
 }
 
@@ -918,9 +945,11 @@ light_drop :: proc(fr: ^Frame_Render, reason: Light_Drop) {
 	case .Zero_Dir:
 		system.eprintln("a directional light has a zero dir; the host drops it")
 	case .Bad_Range:
-		system.eprintln("a point light has a nonfinite range or a range <= 0; the host drops it")
+		system.eprintln("a point or spot light has a nonfinite range or a range <= 0; the host drops it")
 	case .Bad_Point:
-		system.eprintln("a point light has a nonfinite position; the host drops it")
+		system.eprintln("a point or spot light has a nonfinite position; the host drops it")
+	case .Zero_Spot_Dir:
+		system.eprintln("a spot light has a zero dir; the host drops it")
 	case .Directional_Over_Limit:
 		system.eprintfln("a Scene has more than %v directional lights; the host keeps the Sun and the first remaining lights", MAX_DIRECTIONALS)
 	case .Points_Over_Limit:

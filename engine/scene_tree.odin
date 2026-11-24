@@ -176,8 +176,8 @@ pose_of :: #force_inline proc(pos: Vec3, rot: Quat) -> Pose {
 	return {pos = vec3_array(pos), rot = quat_of(rot)}
 }
 
-// A Group moves and turns a Point and turns a Directional's dir. It does not
-// change an Ambient.
+// A Group moves and turns a Point, turns a Directional's dir, and moves a
+// Spot and turns its dir. It does not change an Ambient.
 light_under :: proc(light: Light, parent: ^Walk_Parent) -> Light {
 	if !parent.id.grouped {
 		return light
@@ -191,6 +191,11 @@ light_under :: proc(light: Light, parent: ^Walk_Parent) -> Light {
 	case .Point:
 		pos := pose_compose(parent.world, {pos = vec3_array(light.payload.point.pos), rot = 1}).pos
 		out.payload.point.pos = to_vec3(pos)
+	case .Spot:
+		pos := pose_compose(parent.world, {pos = vec3_array(light.payload.spot.pos), rot = 1}).pos
+		out.payload.spot.pos = to_vec3(pos)
+		dir := linalg.quaternion128_mul_vector3(parent.world.rot, vec3_array(light.payload.spot.dir))
+		out.payload.spot.dir = to_vec3(dir)
 	}
 	return out
 }

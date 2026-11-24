@@ -302,13 +302,17 @@ Vocabulary := [].{
 	##   it. The first Directional that sets `shadow` is the Sun, the only Light
 	##   that casts a shadow.
 	## - `Point`: falls off to zero at `range`. A Group moves and turns `pos`.
+	## - `Spot`: a Point lit only inside a cone along `dir`. `inner` and
+	##   `outer` are half angles in radians: full inside `inner`, none past
+	##   `outer`, smooth between. A Group moves `pos` and turns `dir`. The host
+	##   does not draw a Spot's shadow yet, so `shadow` changes nothing.
 	##
 	## A colour carries its intensity and can exceed 1. The host uses the first
 	## Ambient. The host accepts four Directionals, including the Sun, and
-	## 1024 Points in Scene order. The Sun always keeps the first Directional
+	## 1024 Points and Spots together in Scene order. The Sun always keeps the first Directional
 	## slot. Each camera cluster keeps its nearest 64 Points when full.
 	## The host logs each limit once. A Scene with no Light draws black.
-	Light : [Ambient(Rgb), Directional({ dir : Vec3, color : Rgb, shadow : Bool }), Point({ pos : Vec3, color : Rgb, range : F32 })]
+	Light : [Ambient(Rgb), Directional({ dir : Vec3, color : Rgb, shadow : Bool }), Point({ pos : Vec3, color : Rgb, range : F32 }), Spot({ pos : Vec3, dir : Vec3, color : Rgb, range : F32, inner : F32, outer : F32, shadow : Bool })]
 
 	## How a Panel sizes along one axis, in logical pixels. The names and the
 	## defaults are Clay's.

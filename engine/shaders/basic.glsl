@@ -122,7 +122,9 @@ layout(binding = 2) uniform fs_lights {
     vec4 cluster_grid;
 };
 
-struct Point { vec4 pos; vec4 color; };
+// A Spot's dir.xyz is its direction and dir.w the cosine of its outer half
+// angle, cone.x of its inner one. A Point's dir is zero.
+struct Point { vec4 pos; vec4 color; vec4 dir; vec4 cone; };
 // Cluster and LightIndices share a member name. The WGSL compile merges
 // structs with the same layout and then cannot find a second member name.
 struct Cluster { uvec4 lanes; };
@@ -360,6 +362,9 @@ vec4 surface_color(bool premultiplied) {
             float k = clamp(1.0 - d2 / (range * range), 0.0, 1.0);
             attenuation = k * k / max(d2, MIN_POINT_DISTANCE_SQ);
             l = safe_normalize(to_light);
+            if (dot(point.dir.xyz, point.dir.xyz) > 0.0) {
+                attenuation *= smoothstep(point.dir.w, point.cone.x, dot(-l, point.dir.xyz));
+            }
             radiance = point.color.rgb;
         }
         float n_dot_l = clamp(dot(n, l), 0.0, 1.0);
