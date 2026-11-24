@@ -213,11 +213,12 @@ vec3 env_brdf_approx(vec3 f0, float roughness, float n_dot_v) {
     return f0 * ab.x + ab.y;
 }
 
-// The share of the Sun's light that reaches this point in one cascade, from
-// 0 to 1. Each tap compares 2 x 2 texels in hardware.
-float sun_visibility_in(int cascade, vec3 n) {
+// The share of a light that reaches this point past one shadow layer, from
+// 0 to 1, averaged over the (2 radius + 1) squared taps around it. Each tap
+// compares 2 x 2 texels in hardware.
+float shadow_visibility_in(int layer, vec3 n, int radius) {
     vec3 world = v_world + n * shadow.z;
-    vec4 clip = light_view_proj[cascade] * vec4(world, 1.0);
+    vec4 clip = light_view_proj[layer] * vec4(world, 1.0);
     vec3 ndc = clip.xyz / clip.w;
     vec2 uv = ndc.xy * 0.5 + 0.5;
     // A GL texture starts at the bottom row. Metal and D3D start at the top.
@@ -228,14 +229,28 @@ float sun_visibility_in(int cascade, vec3 n) {
     bool inside = all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)));
     vec2 texel = 1.0 / vec2(textureSize(sampler2DArrayShadow(shadow_tex, shadow_smp), 0).xy);
     float sum = 0.0;
-    int radius = int(fog_color.w);
     for (int y = -radius; y <= radius; y++) {
         for (int x = -radius; x <= radius; x++) {
-            sum += texture(sampler2DArrayShadow(shadow_tex, shadow_smp), vec4(uv + vec2(x, y) * texel, float(cascade), ndc.z + camera_pos.w));
+            sum += texture(sampler2DArrayShadow(shadow_tex, shadow_smp), vec4(uv + vec2(x, y) * texel, float(layer), ndc.z + camera_pos.w));
         }
     }
     float width = float(radius * 2 + 1);
     return inside ? sum / (width * width) : 1.0;
+}
+
+// The share of the Sun's light that reaches this point in one cascade, with
+// the Scene's shadow filter.
+float sun_visibility_in(int cascade, vec3 n) {
+    return shadow_visibility_in(cascade, n, int(fog_color.w));
+}
+
+// The share of a Spot's light that reaches this point past its map. A Spot
+// takes one tap, whose hardware compare already softens its edge over 2 x 2
+// texels, whatever the Scene's filter: several Spots each pay for every
+// pixel lit, and a Spot's map is closer than a cascade, so its texels are
+// small.
+float spot_visibility_in(int layer, vec3 n) {
+    return shadow_visibility_in(layer, n, 0);
 }
 
 // The share of each shadowed Spot's light that reaches this point, one lane
@@ -247,10 +262,10 @@ vec4 spot_visibilities(vec3 n) {
     float count = shadow.y;
     int first = int(fog_ramp.w);
     vec4 vis = vec4(1.0);
-    if (count > 0.0) { vis.x = sun_visibility_in(first, n); }
-    if (count > 1.0) { vis.y = sun_visibility_in(first + 1, n); }
-    if (count > 2.0) { vis.z = sun_visibility_in(first + 2, n); }
-    if (count > 3.0) { vis.w = sun_visibility_in(first + 3, n); }
+    if (count > 0.0) { vis.x = spot_visibility_in(first, n); }
+    if (count > 1.0) { vis.y = spot_visibility_in(first + 1, n); }
+    if (count > 2.0) { vis.z = spot_visibility_in(first + 2, n); }
+    if (count > 3.0) { vis.w = spot_visibility_in(first + 3, n); }
     return vis;
 }
 

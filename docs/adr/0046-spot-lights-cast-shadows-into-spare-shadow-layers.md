@@ -33,8 +33,12 @@ depth-only pipeline that takes any view and projection.
   `shadow_spots` together are at most 4, the existing `MAX_CASCADES`. The
   array gets one layer for each, after the cascades.
 - The first Spots in Scene order that set `shadow` cast, up to
-  `shadow_spots`. Each draws one perspective view, reversed-Z with no far
-  plane, through the existing depth-only shadow pipeline.
+  `shadow_spots`. Each draws one perspective view, reversed-Z out to its
+  range, through the existing depth-only shadow pipeline, with only the
+  casters whose box reaches into that view.
+- A Spot's map is read with one tap, its 2 x 2 hardware compare, whatever
+  the Scene's filter: each Spot costs every pixel it lights, and its map's
+  texels are small beside a cascade's.
 - `basic.glsl` samples up to four Spot layers before its light loop, under
   branches on uniforms only, so D3D keeps uniform control flow around
   SampleCmp. A Spot's lane rides in its light's cone vector.
